@@ -1,0 +1,13 @@
+[phases.setup]
+nixPkgs = ["python312", "chromium", "chromium-driver"]
+
+[phases.install]
+cmds = [
+  "pip install --upgrade pip",
+  "pip install -r requirements.txt",
+  "python -m spacy download en_core_web_sm",
+  "playwright install chromium"
+]
+
+[start]
+cmd = "streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true"

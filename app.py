@@ -147,7 +147,7 @@ def render_sidebar() -> str:
             width=72,
         )
         st.title("Research Assistant")
-        st.caption("Powered by Anthropic Claude · LangGraph")
+        st.caption("Powered by L2 Team")
         st.divider()
 
         # ── API key warnings ──────────────────────────────────────────────────
@@ -183,7 +183,7 @@ def render_sidebar() -> str:
         )
 
         # Resolve which mode is active
-        if playground_mode != "— select —":
+        if playground_mode != "Full Pipeline":
             selected_mode = playground_mode
         else:
             selected_mode = "Full Pipeline"

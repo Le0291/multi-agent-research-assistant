@@ -147,7 +147,7 @@ def render_sidebar() -> str:
             width=72,
         )
         st.title("Research Assistant")
-        st.caption("Powered by Anthropic Claude · LangGraph")
+        st.caption("Powered by L2 Team")
         st.divider()
 
         # ── API key warnings ──────────────────────────────────────────────────
@@ -157,36 +157,28 @@ def render_sidebar() -> str:
         # ── Mode selector ─────────────────────────────────────────────────────
         st.markdown("### 🎛️ Operating Mode")
 
-        # Full Pipeline section
-        st.markdown(
-            '<span class="mode-pill mode-full">📋 Competition Requirement</span>',
-            unsafe_allow_html=True,
-        )
-        full_pipeline_selected = st.radio(
-            "Primary mode",
-            ["Full Pipeline"],
-            key="mode_full",
-            label_visibility="collapsed",
-        )
-
-        st.markdown("---")
-
-        # Agent Playground section
-        st.markdown(
-            '<span class="mode-pill mode-playground">🧪 Agent Playground</span>',
-            unsafe_allow_html=True,
-        )
-        playground_mode = st.selectbox(
-            "Run a single agent",
-            ["— select —"] + PLAYGROUND_MODES,
-            key="mode_playground",
+        # Single unified dropdown.  ALL_MODES already starts with "Full Pipeline"
+        # (the default / competition mode), followed by every single-agent mode.
+        # Selecting "Full Pipeline" runs the complete workflow; any other choice
+        # runs that one agent in isolation via the Agent Playground.
+        selected_mode = st.selectbox(
+            "Choose an agent",
+            ALL_MODES,                 # ["Full Pipeline", "Research Only", …]
+            index=0,                   # default to Full Pipeline
+            key="mode_selector",
         )
 
-        # Resolve which mode is active
-        if playground_mode != "— select —":
-            selected_mode = playground_mode
+        # Show a coloured badge indicating which kind of mode is active
+        if selected_mode == "Full Pipeline":
+            st.markdown(
+                '<span class="mode-pill mode-full">📋 Competition Requirement</span>',
+                unsafe_allow_html=True,
+            )
         else:
-            selected_mode = "Full Pipeline"
+            st.markdown(
+                '<span class="mode-pill mode-playground">🧪 Agent Playground</span>',
+                unsafe_allow_html=True,
+            )
 
         # ── Mode description ──────────────────────────────────────────────────
         st.markdown("---")

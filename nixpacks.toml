@@ -10,4 +10,7 @@ cmds = [
 ]
 
 [start]
-cmd = "streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true"
+# --server.fileWatcherType=none stops Streamlit from importing every optional
+# transformers sub-module (some need torchvision) and removes the noisy
+# ModuleNotFoundError tracebacks from the logs.
+cmd = "streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.fileWatcherType=none"

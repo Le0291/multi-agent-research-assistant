@@ -1,0 +1,21 @@
+# Streamlit configuration for production deployment (Railway).
+
+[server]
+# Disable the local-sources file watcher.  In production we never hot-reload,
+# and the watcher tries to import EVERY sub-module of large libraries such as
+# `transformers` (pulled in by sentence-transformers).  Some of those optional
+# modules require `torchvision`, which we do not install, producing noisy
+# ModuleNotFoundError tracebacks in the logs.  Turning the watcher off removes
+# the noise and speeds up startup.
+fileWatcherType = "none"
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+# Do not phone home with usage statistics.
+gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#3498db"

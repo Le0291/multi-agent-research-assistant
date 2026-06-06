@@ -135,6 +135,34 @@ def _empty_state(topic: str = "") -> ResearchState:
     return ResearchState(topic=topic, started_at=datetime.utcnow().isoformat())
 
 
+def _inject_file_source(state: ResearchState, inputs: dict) -> None:
+    """
+    If the user uploaded a file (extra_file_text in inputs), inject it as
+    a SourceRecord into both raw_sources and classified_sources so every
+    downstream agent can use it alongside web-fetched content.
+    """
+    file_text = inputs.get("extra_file_text", "").strip()
+    file_name = inputs.get("extra_file_name", "uploaded_file")
+
+    if not file_text:
+        return
+
+    file_source = SourceRecord(
+        url=f"file://{file_name}",
+        title=f"Uploaded document: {file_name}",
+        snippet=file_text[:500],
+        full_content=file_text,
+        relevance_score=9.0,       # user-supplied content is always highly relevant
+        source_type="documentation",
+        domain="general",
+        relevance_tier="high",
+    )
+    # Add to both lists so agents that read either list will find it
+    state.raw_sources.insert(0, file_source)
+    state.classified_sources.insert(0, file_source)
+    logger.info("[Router] Injected uploaded file '%s' as a source.", file_name)
+
+
 def _result(mode: str, state: ResearchState, **extra: Any) -> dict[str, Any]:
     """Build a standardised result dict returned by every runner."""
     return {
@@ -231,6 +259,7 @@ def run_research_only(inputs: dict[str, Any]) -> dict[str, Any]:
 
     state = _empty_state(topic)
     logger.info("[Research Only] Starting for topic: %s", topic)
+    _inject_file_source(state, inputs)
 
     _run_orchestrator(state)  # generates sub_questions used by research agent
     _run_research(state)
@@ -257,6 +286,7 @@ def run_classification_only(inputs: dict[str, Any]) -> dict[str, Any]:
     from src.tools.scrape_tool import scrape_page  # noqa: PLC0415
 
     state = _empty_state(topic or "User-supplied URLs")
+    _inject_file_source(state, inputs)   # inject uploaded file if present
 
     if urls:
         # Build SourceRecords from user-supplied URLs instead of searching
@@ -305,6 +335,7 @@ def run_ner_only(inputs: dict[str, Any]) -> dict[str, Any]:
     if text:
         # Skip web search — run NER directly on the provided text
         logger.info("[NER Only] Running on user-provided text (%d chars).", len(text))
+        _inject_file_source(state, inputs)   # also inject any uploaded file
         state.classified_sources = [
             SourceRecord(url="user_input", title="User-provided text",
                          snippet=text[:500], full_content=text,
@@ -373,6 +404,7 @@ def run_analysis_only(inputs: dict[str, Any]) -> dict[str, Any]:
 
     state = _empty_state(topic)
     logger.info("[Analysis Only] Running prerequisites for: %s", topic)
+    _inject_file_source(state, inputs)   # inject uploaded file before research
 
     # Auto-resolve full chain up to NER
     _run_ner(state)   # internally calls orchestrator → research → classification
@@ -410,6 +442,7 @@ def run_writer_only(inputs: dict[str, Any]) -> dict[str, Any]:
 
     state = _empty_state(topic)
     logger.info("[Writer Only] Running prerequisites for: %s", topic)
+    _inject_file_source(state, inputs)   # inject uploaded file as primary source
 
     # Auto-resolve all prerequisites
     _run_illustration(state)  # internally: orchestrator→research→classify→NER→analysis

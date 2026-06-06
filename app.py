@@ -1,5 +1,6 @@
 """
 app.py — Multi-Agent Research Assistant: Streamlit UI.
+Powered by L2 team.
 
 TWO OPERATING MODES
 ===================
@@ -11,8 +12,14 @@ Full Pipeline  (default)
 Agent Playground
     Runs a single selected agent in isolation.  Dependency resolution is
     handled automatically by src/router.py — the user only sees the output of
-    the agent they chose.  This mode is the "innovation" feature: it lets the
-    demo audience inspect each agent independently.
+    the agent they chose.
+
+FILE UPLOAD
+===========
+Users can upload PDF, DOCX, TXT, or CSV files.  The file content is extracted
+and injected into any agent as if it were a scraped web source.  This allows
+running NER, classification, analysis, or writing directly on uploaded documents
+without any web search.
 
 RUN:
     streamlit run app.py
@@ -70,6 +77,23 @@ st.markdown("""
     background:#e8f4fd; color:#1a5276; font-size:0.82rem;
     margin:2px;
 }
+
+/* File upload box */
+.file-pill {
+    display:inline-block; padding:3px 10px; border-radius:12px;
+    font-size:0.78rem; font-weight:600; margin-bottom:6px;
+    background:#fff3cd; color:#856404;
+}
+.file-info-card {
+    background:#fffdf0; border:1px solid #ffc107; border-radius:8px;
+    padding:10px 14px; margin:8px 0; font-size:0.88rem;
+}
+
+/* Footer branding */
+.l2-footer {
+    text-align:center; padding:12px; color:#6c757d;
+    font-size:0.80rem; border-top:1px solid #e9ecef; margin-top:24px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -83,6 +107,9 @@ from src.router import (
 )
 from src.utils.error_handler import check_api_keys
 from src.utils.cost_tracker import format_cost_table
+from src.utils.file_processor import (
+    extract_text, get_file_info, SUPPORTED_EXTENSIONS, SUPPORTED_EXTENSIONS_DISPLAY,
+)
 from src.graph import (
     build_graph, _dict_to_state, _state_to_full_dict, get_graph_config,
 )
@@ -180,8 +207,56 @@ def render_sidebar() -> str:
             for tool in list_tools():
                 st.markdown(f"- **{tool['name']}**")
 
+        # ── File Upload section ───────────────────────────────────────────────
         st.markdown("---")
-        st.caption("© Multi-Agent Research Assistant")
+        st.markdown("### 📁 File Upload")
+        st.caption(f"Supported: {SUPPORTED_EXTENSIONS_DISPLAY}")
+
+        uploaded_file = st.file_uploader(
+            "Upload a document",
+            type=[e.lstrip(".") for e in SUPPORTED_EXTENSIONS],
+            key="sidebar_file_upload",
+            label_visibility="collapsed",
+            help=f"Upload a file to analyse. Supported: {SUPPORTED_EXTENSIONS_DISPLAY}",
+        )
+
+        # Store extracted text in session state so all modes can access it
+        if uploaded_file is not None:
+            file_bytes = uploaded_file.read()
+            info = get_file_info(file_bytes, uploaded_file.name)
+
+            st.markdown(
+                f'<div class="file-info-card">'
+                f'📄 <b>{info["name"]}</b><br>'
+                f'Format: {info["extension"]} · Size: {info["size"]}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            # Extract text and store in session state
+            with st.spinner("Reading file…"):
+                extracted = extract_text(file_bytes, uploaded_file.name)
+            st.session_state["uploaded_file_text"] = extracted
+            st.session_state["uploaded_file_name"] = uploaded_file.name
+            st.success(f"✅ Extracted {len(extracted):,} characters")
+
+        elif "uploaded_file_text" in st.session_state:
+            # Show previously uploaded file info
+            st.caption(
+                f"📄 Active: {st.session_state.get('uploaded_file_name', 'file')}"
+            )
+            if st.button("🗑️ Clear file", key="clear_file"):
+                del st.session_state["uploaded_file_text"]
+                del st.session_state["uploaded_file_name"]
+                st.rerun()
+
+        st.markdown("---")
+        # ── Branding ─────────────────────────────────────────────────────────
+        st.markdown(
+            "<div style='text-align:center; color:#6c757d; font-size:0.78rem;'>"
+            "Powered by <b>L2 team</b></div>",
+            unsafe_allow_html=True,
+        )
 
     return selected_mode
 
@@ -207,6 +282,15 @@ def render_full_pipeline_ui() -> None:
         "All **9 agents** execute in sequence via LangGraph.  "
         "A complete cited Markdown report is produced at the end."
     )
+
+    # ── File upload notice ────────────────────────────────────────────────────
+    if st.session_state.get("uploaded_file_text"):
+        st.markdown(
+            f'<span class="file-pill">📁 File loaded: '
+            f'{st.session_state.get("uploaded_file_name", "file")} — '
+            f'will be added as a source</span>',
+            unsafe_allow_html=True,
+        )
 
     topic = st.text_input(
         "Research Topic",
@@ -271,6 +355,27 @@ def _stream_full_pipeline(topic: str) -> None:
 
     # ── Run pipeline ──────────────────────────────────────────────────────────
     initial    = ResearchState(topic=topic)
+
+    # If a file was uploaded, inject it as an extra source so the pipeline
+    # can use its content alongside web-searched sources.
+    file_text = st.session_state.get("uploaded_file_text", "")
+    file_name = st.session_state.get("uploaded_file_name", "uploaded_file")
+    if file_text:
+        from src.state import SourceRecord  # noqa: PLC0415
+        file_source = SourceRecord(
+            url=f"file://{file_name}",
+            title=f"Uploaded: {file_name}",
+            snippet=file_text[:500],
+            full_content=file_text,
+            relevance_score=9.0,   # treat uploaded file as highly relevant
+            source_type="documentation",
+            domain="general",
+            relevance_tier="high",
+        )
+        initial.raw_sources.append(file_source)
+        initial.classified_sources.append(file_source)
+        st.info(f"📁 File '{file_name}' added as a source to the pipeline.")
+
     state_dict = _state_to_full_dict(initial)
     app        = build_graph()
     step_idx   = 0
@@ -478,6 +583,15 @@ def render_playground_ui(mode: str) -> None:
     inputs: dict[str, Any] = {}
     accepted_inputs = MODE_INPUTS.get(mode, [])
 
+    # Show file upload notice if a file is already loaded
+    if st.session_state.get("uploaded_file_text"):
+        fn = st.session_state.get("uploaded_file_name", "file")
+        st.markdown(
+            f'<span class="file-pill">📁 File active: {fn} — '
+            f'will be used as input text</span>',
+            unsafe_allow_html=True,
+        )
+
     with st.form(key=f"form_{mode.replace(' ', '_')}"):
 
         if "topic" in accepted_inputs:
@@ -533,6 +647,26 @@ def render_playground_ui(mode: str) -> None:
 
     # ── Execute and render results ────────────────────────────────────────────
     if run_btn:
+        # If a file was uploaded and the mode accepts text/draft input,
+        # inject the file content automatically so the user doesn't need
+        # to paste it manually.
+        file_text = st.session_state.get("uploaded_file_text", "")
+        file_name = st.session_state.get("uploaded_file_name", "uploaded_file")
+
+        if file_text:
+            # For NER: inject as text if user didn't type anything
+            if mode == "NER Only" and not inputs.get("text", "").strip():
+                inputs["text"] = file_text
+            # For Critic: inject as draft if user didn't type anything
+            elif mode == "Critic Only" and not inputs.get("draft", "").strip():
+                inputs["draft"] = file_text
+                if not inputs.get("topic", "").strip():
+                    inputs["topic"] = file_name
+            # For all other modes: attach as extra_file_text for router
+            else:
+                inputs["extra_file_text"] = file_text
+                inputs["extra_file_name"] = file_name
+
         with st.spinner(f"Running {mode}…"):
             result = route(mode, inputs)
 
@@ -900,7 +1034,8 @@ def main() -> None:
     st.title("🔬 Multi-Agent Research Assistant")
     st.markdown(
         "**Full Pipeline** runs all 9 agents and produces a complete report.  "
-        "**Agent Playground** lets you run any single agent in isolation."
+        "**Agent Playground** lets you run any single agent in isolation.  "
+        "**Upload a file** from the sidebar to run any operation on your own documents."
     )
 
     # ── Sidebar (returns selected mode) ───────────────────────────────────────

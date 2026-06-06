@@ -265,6 +265,16 @@ def render_sidebar() -> str:
 #  Full Pipeline UI  (Mode 1)
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _set_demo_topic() -> None:
+    """
+    Callback for the "Demo Topic" button.
+
+    Runs at the START of the next script run — before the fp_topic text_input
+    is instantiated — so it is allowed to set st.session_state.fp_topic.
+    """
+    st.session_state.fp_topic = "Mixture of Experts in Large Language Models"
+
+
 def render_full_pipeline_ui() -> None:
     """
     Render the Full Pipeline interface.
@@ -305,11 +315,14 @@ def render_full_pipeline_ui() -> None:
             use_container_width=True, key="fp_run",
         )
     with col2:
-        demo_btn = st.button("💡 Demo Topic", key="fp_demo", use_container_width=True)
-
-    if demo_btn:
-        st.session_state.fp_topic = "Mixture of Experts in Large Language Models"
-        st.rerun()
+        # Use an on_click callback so the demo topic is set BEFORE the
+        # text_input widget is re-instantiated on the next run.  Modifying
+        # st.session_state.fp_topic directly after the widget exists raises
+        # a StreamlitAPIException.
+        st.button(
+            "💡 Demo Topic", key="fp_demo", use_container_width=True,
+            on_click=_set_demo_topic,
+        )
 
     if run_btn:
         if not topic.strip():

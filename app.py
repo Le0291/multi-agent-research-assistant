@@ -183,7 +183,7 @@ def render_sidebar() -> str:
         )
 
         # Resolve which mode is active
-        if playground_mode != "Full Pipeline":
+        if playground_mode != "— select —":
             selected_mode = playground_mode
         else:
             selected_mode = "Full Pipeline"

@@ -54,6 +54,12 @@ _TECH_REMAPS: set[str] = {
     "LangChain", "LangGraph", "ChromaDB", "SpaCy", "Streamlit",
     "GitHub", "ChatGPT", "GPT-4", "GPT-3", "Claude", "Gemini",
     "Llama", "Mistral", "Falcon", "Mixtral", "Tavily", "Chroma",
+    # Additional common AI/research tech terms
+    "NER", "ReAct", "MCP", "Ollama", "RAG", "FAISS", "Pinecone",
+    "LangSmith", "LangServe", "Mermaid", "Playwright", "BeautifulSoup",
+    "Trafilatura", "Pydantic", "FastAPI", "Docker", "Railway",
+    "Markdown", "PDF", "JSON", "YAML", "REST", "GraphQL",
+    "Claude API", "Brave Search", "Tavily API",
 }
 
 # Case-insensitive lookup set for fast tech-term checking
@@ -92,20 +98,57 @@ def _load_spacy():
         return spacy.load(model_name)
 
 
+def _clean_text_for_ner(text: str) -> str:
+    """
+    Pre-process scraped text before feeding to SpaCy.
+
+    Removes:
+    - Full URLs (http/https lines)
+    - ASCII table borders (+----+, |---|)
+    - Lines with excessive special characters (table rows, garbage)
+    - Duplicate whitespace / control characters
+    """
+    lines = text.splitlines()
+    clean_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Skip full URL-only lines
+        if re.match(r'^https?://\S+$', stripped):
+            continue
+        # Skip ASCII table border rows: lines made mostly of +, -, |, =, v
+        if re.match(r'^[\s+\-|=v><]+$', stripped):
+            continue
+        # Skip lines where >40% of chars are non-alphanumeric (garbage)
+        alnum = sum(c.isalnum() or c.isspace() for c in stripped)
+        if len(stripped) > 10 and alnum / len(stripped) < 0.60:
+            continue
+        # Remove inline URLs but keep surrounding text
+        stripped = re.sub(r'https?://\S+', '', stripped).strip()
+        if stripped:
+            clean_lines.append(stripped)
+    return ' '.join(clean_lines)
+
+
 def _extract_spacy(text: str, url: str, nlp) -> list[tuple[str, str, str]]:
     """
     Run SpaCy NER on text and return (surface, spacy_label, category) tuples.
 
     Quality filters applied in order:
-    1. Label allow-list  — only labels in _LABEL_MAP are kept (drops CARDINAL,
+    1. Text cleaning     — remove URLs, ASCII tables, garbage lines.
+    2. Label allow-list  — only labels in _LABEL_MAP are kept (drops CARDINAL,
        ORDINAL, PERCENT, MONEY, QUANTITY, TIME which produce pure noise).
-    2. Minimum length    — must be ≥ 2 chars.
-    3. Stop-word filter  — common noise words and ordinal number words removed.
-    4. Numeric filter    — purely numeric strings like "128" or "2024" discarded.
-    5. Tech-term remap   — known AI/ML abbreviations re-labelled as "technology"
-       even when SpaCy incorrectly classifies them as ORG.
+    3. URL entity filter — entities containing 'http' or '://' are dropped.
+    4. Length bounds     — must be 2–60 chars.
+    5. Word count cap    — max 5 words (real named entities are short).
+    6. Stop-word filter  — common noise words removed.
+    7. Numeric filter    — purely numeric strings discarded.
+    8. Garbage filter    — entities with too many special chars dropped.
+    9. Tech-term remap   — known AI/ML terms re-labelled as "technology".
     """
-    doc = nlp(text[:5000])  # Cap input to keep processing fast
+    clean = _clean_text_for_ner(text[:8000])
+    doc = nlp(clean[:5000])  # SpaCy input cap
     results = []
     for ent in doc.ents:
         surface = ent.text.strip()
@@ -113,22 +156,35 @@ def _extract_spacy(text: str, url: str, nlp) -> list[tuple[str, str, str]]:
 
         # ── Filter 1: only allowed SpaCy labels ──────────────────────────────
         if label not in _LABEL_MAP:
-            continue  # silently drops CARDINAL, ORDINAL, PERCENT, MONEY …
-
-        # ── Filter 2: minimum meaningful length ──────────────────────────────
-        if len(surface) < 2:
             continue
 
-        # ── Filter 3: stop-word / ordinal-word filter ─────────────────────────
+        # ── Filter 2: URL in entity text ─────────────────────────────────────
+        if 'http' in surface or '://' in surface or surface.startswith('www.'):
+            continue
+
+        # ── Filter 3: length bounds (2–60 chars) ─────────────────────────────
+        if len(surface) < 2 or len(surface) > 60:
+            continue
+
+        # ── Filter 4: word count cap (max 5 words) ───────────────────────────
+        if len(surface.split()) > 5:
+            continue
+
+        # ── Filter 5: stop-word filter ────────────────────────────────────────
         if surface.lower() in _STOP_ENTITIES:
             continue
 
-        # ── Filter 4: pure numeric strings ───────────────────────────────────
-        # Matches "128", "2,048", "3.14", "99.9%" etc.
-        if re.match(r'^\d[\d,.\s%]*$', surface):
+        # ── Filter 6: pure numeric strings ───────────────────────────────────
+        if re.match(r'^\d[\d,.\s%\-/]*$', surface):
             continue
 
-        # ── Filter 5: tech-term category remapping ────────────────────────────
+        # ── Filter 7: garbage character filter ───────────────────────────────
+        # Drop entities where >25% of chars are special (e.g., "+--+", "v v v")
+        special = sum(not (c.isalnum() or c.isspace() or c in ".-,'") for c in surface)
+        if len(surface) > 4 and special / len(surface) > 0.25:
+            continue
+
+        # ── Filter 8: tech-term category remapping ────────────────────────────
         if surface in _TECH_REMAPS or surface.upper() in _TECH_REMAPS_UPPER:
             category = "technology"
         else:
@@ -200,17 +256,45 @@ def ner_agent_node(state: ResearchState) -> dict[str, Any]:
         cooc = _cooccurrences(text, ent_names, nlp)
         all_cooc.extend(cooc)
 
+    # ── Normalise + deduplicate similar entities ─────────────────────────────
+    # "the Model Context Protocol" → "Model Context Protocol"
+    # "langchain" + "LangChain" → merged under the most-seen capitalisation
+    normalised_counter: Counter = Counter()
+    normalised_labels:  dict[str, tuple[str, str]] = {}
+    normalised_sources: dict[str, list[str]] = defaultdict(list)
+    canonical_map: dict[str, str] = {}  # normalised_key → preferred surface
+
+    for surface, count in entity_counter.items():
+        # Strip common leading articles
+        core = re.sub(r'^(the|a|an)\s+', '', surface, flags=re.IGNORECASE).strip()
+        key  = core.lower()
+
+        if key not in canonical_map:
+            canonical_map[key] = core  # first seen wins as display name
+        else:
+            # Prefer the capitalisation with the higher count
+            existing = canonical_map[key]
+            if entity_counter[surface] > entity_counter.get(existing, 0):
+                canonical_map[key] = core
+
+        preferred = canonical_map[key]
+        normalised_counter[preferred] += count
+        if key not in normalised_labels:
+            normalised_labels[key] = entity_labels.get(surface, ("MISC", "concept"))
+        normalised_sources[preferred].extend(entity_source_map.get(surface, []))
+
     # ── Build EntityRecord list ───────────────────────────────────────────────
     entity_records: list[EntityRecord] = []
-    for surface, count in entity_counter.most_common(100):  # Top 100 entities
-        label, category = entity_labels.get(surface, ("MISC", "concept"))
+    for surface, count in normalised_counter.most_common(80):  # Top 80 after dedup
+        key = re.sub(r'^(the|a|an)\s+', '', surface, flags=re.IGNORECASE).strip().lower()
+        label, category = normalised_labels.get(key, ("MISC", "concept"))
         entity_records.append(
             EntityRecord(
                 text=surface,
                 label=label,
                 category=category,
                 count=count,
-                sources=list(set(entity_source_map[surface])),  # Deduplicate URLs
+                sources=list(set(normalised_sources[surface])),  # Deduplicate URLs
             )
         )
 

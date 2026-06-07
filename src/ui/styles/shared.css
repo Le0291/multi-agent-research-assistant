@@ -1,0 +1,135 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   shared.css — Stitch design system, theme-independent rules
+   Edit this file to change fonts, spacing, pill colours, bento-grid, etc.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Inter font ──────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/*  Apply Inter to TEXT content only.
+    We deliberately skip generic div/button/span so we don't break
+    Streamlit's internal icon fonts (the expander arrow uses one). */
+.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6,
+.stApp p,.stApp li,.stApp label,
+.stApp input[type="text"],.stApp input[type="number"],
+.stApp textarea,
+.stApp [data-testid="stMarkdownContainer"],
+.stApp [data-testid="stWidgetLabel"],
+.stApp [data-testid="stMetricValue"],
+.stApp [data-testid="stMetricLabel"],
+.stApp [data-testid="stCaptionContainer"],
+.stApp [data-testid="stText"],
+.stApp [data-testid="stAlertContainer"] p {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+}
+
+/* ── Thin scrollbar ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3f4850; border-radius: 10px; }
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+.stProgress .st-bo { background-color: #3498db; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MODE PILLS  (colour-coded per mode; work on both themes)
+   ══════════════════════════════════════════════════════════════════════════ */
+.mode-pill {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+/* Dark-mode pill colours (light-mode overrides are in light.css) */
+.stApp .mode-full {
+    background: #0f3320 !important;
+    color: #61de8a !important;
+    border: 1px solid rgba(97,222,138,0.35) !important;
+}
+.stApp .mode-playground {
+    background: #0d2240 !important;
+    color: #92ccff !important;
+    border: 1px solid rgba(146,204,255,0.35) !important;
+}
+.stApp .file-pill {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    background: #3d2a00 !important;
+    color: #ffba4b !important;
+    border: 1px solid rgba(255,186,75,0.35) !important;
+}
+
+/* ── Score colours ───────────────────────────────────────────────────────── */
+.stApp .score-high { color: #61de8a !important; font-weight: 700; font-size: 1.4rem; }
+.stApp .score-low  { color: #ffb4ab !important; font-weight: 700; font-size: 1.4rem; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BENTO-GRID  (metric summary cards on NER result page)
+   ══════════════════════════════════════════════════════════════════════════ */
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+    margin: 12px 0;
+}
+.bento-card {
+    border-radius: 12px;
+    padding: 14px 12px;
+    text-align: center;
+    border: 1px solid rgba(63,72,80,0.8);
+}
+.bento-card .bc-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.bento-card .bc-label {
+    font-size: 0.70rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-top: 4px;
+    opacity: 0.75;
+}
+
+/* ── Glass card ──────────────────────────────────────────────────────────── */
+.glass-card {
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SIDEBAR NAV BUTTONS
+   st.button() elements in the sidebar are transformed into flat Stitch
+   nav-item rows by these rules.  Colours are supplied by each theme file.
+   ══════════════════════════════════════════════════════════════════════════ */
+section[data-testid="stSidebar"] .stButton { margin-bottom: 1px !important; }
+section[data-testid="stSidebar"] .stButton > button {
+    background:      transparent !important;
+    border:          1px solid transparent !important;
+    border-radius:   8px !important;
+    text-align:      left !important;
+    justify-content: flex-start !important;
+    padding:         8px 12px !important;
+    font-size:       0.875rem !important;
+    font-weight:     500 !important;
+    width:           100% !important;
+    box-shadow:      none !important;
+    transition:      background 0.15s !important;
+}
+/* Active button keeps a coloured right-border indicator */
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"],
+section[data-testid="stSidebar"] .stButton button[kind="primary"] {
+    border-right:  3px solid currentColor !important;
+    box-shadow:    none !important;
+    font-weight:   600 !important;
+}

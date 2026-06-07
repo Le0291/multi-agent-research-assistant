@@ -1,0 +1,101 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   light.css — Stitch light-mode colour tokens
+   ───────────────────────────────────────────────────────────────────────────
+   Design tokens:
+     background  #f8fafc   sidebar  #f0f4f8
+     primary     #006397   border   #e2e8f0
+     text        #1a1a1a   muted    #64748b
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Main containers ─────────────────────────────────────────────────────── */
+.stApp { background-color: #f8fafc; color: #1a1a1a; }
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] { background-color: #f8fafc !important; }
+[data-testid="stHeader"] {
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+section[data-testid="stSidebar"] {
+    background-color: #f0f4f8 !important;
+    border-right: 1px solid #e2e8f0 !important;
+}
+
+/* ── Sidebar nav button colours ──────────────────────────────────────────── */
+section[data-testid="stSidebar"] .stButton > button {
+    color: #475569 !important;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: #e2eaf4 !important;
+    color: #1e3a5f !important;
+}
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"],
+section[data-testid="stSidebar"] .stButton button[kind="primary"] {
+    background: #e8f4ff !important;
+    color: #006397 !important;
+    border-right-color: #006397 !important;
+}
+
+/* ── Custom components ───────────────────────────────────────────────────── */
+.metric-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #006397;
+    margin: 4px 0;
+    color: #1a1a1a;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.bento-card {
+    background: #ffffff;
+    color: #1a1a1a;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.bento-card .bc-value { color: #006397; }
+.bento-card .bc-label { color: #64748b; }
+.glass-card { background: #ffffff; border-color: #e2e8f0; }
+.entity-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #e8f4fd;
+    color: #1a5276;
+    font-size: 0.82rem;
+    margin: 2px;
+}
+.file-info-card {
+    background: #fffdf0;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 8px 0;
+    font-size: 0.88rem;
+    color: #1a1a1a;
+}
+.l2-footer {
+    text-align: center;
+    padding: 12px;
+    color: #64748b;
+    font-size: 0.80rem;
+    border-top: 1px solid #e2e8f0;
+    margin-top: 24px;
+}
+
+/* ── Pill / badge overrides for light mode ───────────────────────────────── */
+.stApp .mode-full {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+    border: 1px solid rgba(22,101,52,0.3) !important;
+}
+.stApp .mode-playground {
+    background: #dbeafe !important;
+    color: #1e40af !important;
+    border: 1px solid rgba(30,64,175,0.3) !important;
+}
+.stApp .file-pill {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+    border: 1px solid rgba(146,64,14,0.3) !important;
+}
+.stApp .score-high { color: #15803d !important; }
+.stApp .score-low  { color: #dc2626 !important; }

@@ -1,0 +1,278 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   dark.css — Stitch dark-mode colour tokens
+   ───────────────────────────────────────────────────────────────────────────
+   Design tokens (from Stitch / DESIGN.md):
+     surface-dim            #101418   ← main background
+     surface-container      #1c2024   ← cards, expanders, inputs
+     surface-container-high #262a2f   ← active nav bg
+     surface-container-low  #0a0f13   ← sidebar background
+     outline-variant        #3f4850   ← borders
+     on-surface             #e0e3e8   ← primary text
+     on-surface-variant     #bfc7d2   ← muted / caption text
+     primary                #92ccff   ← accent (links, active nav)
+     primary-container      #3498db   ← buttons, progress bar
+     secondary              #61de8a   ← success / green
+     tertiary               #ffba4b   ← warning / amber
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Main containers ─────────────────────────────────────────────────────── */
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] {
+    background-color: #101418 !important;
+    color: #e0e3e8 !important;
+}
+[data-testid="stHeader"] {
+    background-color: #101418 !important;
+    border-bottom: 1px solid #3f4850 !important;
+}
+[data-testid="stToolbar"] { color: #e0e3e8 !important; }
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+section[data-testid="stSidebar"] {
+    background-color: #0a0f13 !important;
+    border-right: 1px solid #3f4850 !important;
+}
+
+/* ── Sidebar nav button colours ──────────────────────────────────────────── */
+section[data-testid="stSidebar"] .stButton > button {
+    color: #bfc7d2 !important;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: #1c2024 !important;
+    color: #e0e3e8 !important;
+}
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"],
+section[data-testid="stSidebar"] .stButton button[kind="primary"] {
+    background: #262a2f !important;
+    color: #92ccff !important;
+    border-right-color: #92ccff !important;
+    box-shadow: 0 0 10px rgba(146,204,255,0.08) !important;
+}
+
+/* ── Body text ───────────────────────────────────────────────────────────── */
+.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6 {
+    color: #e0e3e8 !important;
+}
+.stApp p,.stApp li,.stApp label,
+.stApp [data-testid="stMarkdownContainer"],
+.stApp [data-testid="stWidgetLabel"],
+.stApp [data-testid="stMetricValue"],
+.stApp [data-testid="stMetricLabel"] {
+    color: #e0e3e8 !important;
+}
+.stApp [data-testid="stCaptionContainer"] { color: #bfc7d2 !important; }
+
+/* ── Inputs & textareas ──────────────────────────────────────────────────── */
+.stApp textarea,.stApp input,
+.stApp .stTextInput input,.stApp .stTextArea textarea,
+.stApp .stSelectbox div[data-baseweb="select"] > div {
+    background-color: #1c2024 !important;
+    color: #e0e3e8 !important;
+    border-color: #3f4850 !important;
+}
+
+/* ── Secondary / download buttons ────────────────────────────────────────── */
+.stApp .stButton button[kind="secondary"],
+.stApp .stDownloadButton button {
+    background-color: #1c2024 !important;
+    color: #e0e3e8 !important;
+    border: 1px solid #3f4850 !important;
+}
+
+/* ── Primary button (blue glow) ──────────────────────────────────────────── */
+.stApp .stButton > button[data-testid="stBaseButton-primary"],
+.stApp .stButton button[kind="primary"] {
+    background-color: #3498db !important;
+    border-color: #3498db !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 12px rgba(52,152,219,0.25) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EXPANDERS
+   ══════════════════════════════════════════════════════════════════════════ */
+.stApp [data-testid="stExpander"] {
+    background-color: #1c2024 !important;
+    border: 1px solid #3f4850 !important;
+    border-radius: 12px !important;
+}
+.stApp [data-testid="stExpander"] summary { color: #e0e3e8 !important; }
+.stApp [data-testid="stExpander"] summary svg { fill: #e0e3e8 !important; }
+
+/* Nuclear fix: force dark bg into ALL open-expander content */
+.stApp details[open] > div,
+.stApp details[open] > div *:not(button):not(.mode-full):not(.mode-playground):not(.file-pill):not(.score-high):not(.score-low) {
+    background-color: #1c2024 !important;
+    color: #e0e3e8 !important;
+    border-color: #3f4850 !important;
+}
+
+/* Restore badge/pill colours that the nuclear rule overrode */
+.stApp details[open] .mode-full {
+    background: #0f3320 !important; color: #61de8a !important;
+    border: 1px solid rgba(97,222,138,0.35) !important;
+}
+.stApp details[open] .mode-playground {
+    background: #0d2240 !important; color: #92ccff !important;
+    border: 1px solid rgba(146,204,255,0.35) !important;
+}
+.stApp details[open] .file-pill {
+    background: #3d2a00 !important; color: #ffba4b !important;
+    border: 1px solid rgba(255,186,75,0.35) !important;
+}
+.stApp details[open] .score-high { color: #61de8a !important; }
+.stApp details[open] .score-low  { color: #ffb4ab !important; }
+
+/* Restore file-uploader dropzone inside expanders */
+.stApp details[open] [data-testid="stFileUploadDropzone"] {
+    background-color: #1c2024 !important;
+    border: 2px dashed #3f4850 !important;
+}
+
+/* Restore primary buttons inside expanders */
+.stApp details[open] button[kind="primary"],
+.stApp details[open] .stButton > button[data-testid="stBaseButton-primary"] {
+    background-color: #3498db !important;
+    color: #ffffff !important;
+    border-color: #3498db !important;
+}
+/* Restore secondary buttons inside expanders */
+.stApp details[open] button[kind="secondary"],
+.stApp details[open] .stButton > button[data-testid="stBaseButton-secondary"] {
+    background-color: #1c2024 !important;
+    color: #e0e3e8 !important;
+    border-color: #3f4850 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CUSTOM COMPONENTS
+   ══════════════════════════════════════════════════════════════════════════ */
+.metric-card {
+    background: #1c2024;
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid #3f4850;
+    border-left: 4px solid #3498db;
+    margin: 4px 0;
+    color: #e0e3e8;
+}
+.bento-card {
+    background: rgba(28,32,36,0.9);
+    color: #e0e3e8;
+    border-color: #3f4850;
+}
+.bento-card .bc-value { color: #92ccff; }
+.bento-card .bc-label { color: #bfc7d2; }
+.glass-card {
+    background: rgba(28,32,36,0.85);
+    border-color: rgba(255,255,255,0.06);
+}
+.entity-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #1a2d45;
+    color: #92ccff;
+    font-size: 0.82rem;
+    margin: 2px;
+}
+.file-info-card {
+    background: #2a2615;
+    border: 1px solid #ffba4b;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin: 8px 0;
+    font-size: 0.88rem;
+    color: #f0e6c0;
+}
+.l2-footer {
+    text-align: center;
+    padding: 12px;
+    color: #bfc7d2;
+    font-size: 0.80rem;
+    border-top: 1px solid #3f4850;
+    margin-top: 24px;
+}
+
+/* ── Forms ───────────────────────────────────────────────────────────────── */
+.stApp [data-testid="stForm"] {
+    background-color: #1c2024 !important;
+    border: 1px solid #3f4850 !important;
+    border-radius: 12px !important;
+}
+
+/* ── File upload widget ──────────────────────────────────────────────────── */
+.stApp [data-testid="stFileUploader"],
+.stApp [data-testid="stFileUploader"] > div,
+.stApp [data-testid="stFileUploader"] > div > div,
+.stApp [data-testid="stFileUploader"] > div > div > div {
+    background-color: #1c2024 !important;
+    border-radius: 12px !important;
+}
+.stApp [data-testid="stFileUploadDropzone"],
+.stApp [data-testid="stFileUploaderDropzone"],
+.stApp section[data-testid="stFileUploadDropzone"],
+.stApp [class*="uploadInstructions"],
+.stApp [class*="fileUpload"] {
+    background-color: #1c2024 !important;
+    border: 2px dashed #3f4850 !important;
+    border-radius: 12px !important;
+}
+.stApp [data-testid="stFileUploadDropzone"] *,
+.stApp [data-testid="stFileUploaderDropzone"] *,
+.stApp [class*="uploadInstructions"] * { color: #bfc7d2 !important; }
+.stApp [data-testid="stFileUploaderFileName"] { color: #e0e3e8 !important; }
+.stApp button[data-testid="stBaseButton-minimal"] { color: #bfc7d2 !important; }
+
+/* File upload INSIDE open expanders (extra nuclear fix) */
+.stApp details[open] [data-testid="stFileUploader"],
+.stApp details[open] [data-testid="stFileUploader"] *,
+.stApp details[open] section[data-testid="stFileUploadDropzone"],
+.stApp details[open] section[data-testid="stFileUploadDropzone"] *,
+.stApp details[open] [data-testid="stFileUploadDropzone"],
+.stApp details[open] [data-testid="stFileUploadDropzone"] *,
+.stApp details[open] [class*="uploadInstructions"],
+.stApp details[open] [class*="uploadInstructions"] * {
+    background-color: #1c2024 !important;
+    color: #bfc7d2 !important;
+}
+.stApp details[open] [data-testid="stFileUploadDropzone"],
+.stApp details[open] section[data-testid="stFileUploadDropzone"] {
+    border: 2px dashed #3f4850 !important;
+    border-radius: 12px !important;
+}
+
+/* ── Misc ────────────────────────────────────────────────────────────────── */
+.stApp [data-testid="stAlertContainer"] { background-color: #1c2024 !important; }
+.stApp [data-testid="stAlertContainer"] p,
+.stApp [data-testid="stAlertContainer"] div { color: #e0e3e8 !important; }
+
+.stApp [data-testid="stTable"],
+.stApp [data-testid="stDataFrame"] {
+    background-color: #1c2024 !important;
+    color: #e0e3e8 !important;
+}
+
+.stApp hr { border-color: #3f4850 !important; }
+
+[data-baseweb="popover"] [data-baseweb="menu"] {
+    background-color: #1c2024 !important;
+    border: 1px solid #3f4850 !important;
+}
+[data-baseweb="popover"] [data-baseweb="menu"] li { color: #e0e3e8 !important; }
+[data-baseweb="popover"] [data-baseweb="menu"] li:hover {
+    background-color: #262a2f !important;
+}
+
+.stApp [data-testid="stSpinner"] p { color: #e0e3e8 !important; }
+.stApp small { color: #bfc7d2 !important; }
+.stApp .stSelectbox [data-baseweb="select"] [data-baseweb="value"] {
+    color: #e0e3e8 !important;
+}
+
+.stApp [data-baseweb="tab"] { color: #bfc7d2 !important; }
+.stApp [data-baseweb="tab"][aria-selected="true"] { color: #92ccff !important; }
+.stApp [data-baseweb="tab-list"] { background-color: #101418 !important; }
+
+.stApp [data-testid="stProgressBar"] > div { background-color: #3f4850 !important; }

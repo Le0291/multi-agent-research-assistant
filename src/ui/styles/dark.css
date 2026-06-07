@@ -21,6 +21,17 @@
 
 
 /* ══════════════════════════════════════════════════════════════════════════
+   0. STREAMLIT INTERNAL CLASSES (emotion-cache)
+      Target the stable part of the class name (e1wbovuq4) so it works
+      across Streamlit patch versions even if the hash part changes.
+   ══════════════════════════════════════════════════════════════════════════ */
+[class*="e1wbovuq4"],
+.st-emotion-cache-zwqpw9 {
+    background-color: #101418 !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
    1. GLOBAL RESET — catch-all so new Streamlit components start dark
    ══════════════════════════════════════════════════════════════════════════ */
 .stApp,

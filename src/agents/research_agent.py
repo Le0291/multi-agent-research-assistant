@@ -32,25 +32,28 @@ relevance.  Return ONLY the integer score, nothing else."""
 
 
 def _score_source(topic: str, snippet: str, cost_metrics: Any) -> float:
-    """Ask Claude to score a source's relevance (1–10) to the topic."""
-    try:
-        messages = [
-            SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(
-                content=(
-                    f"Topic: {topic}\n\n"
-                    f"Source snippet:\n{snippet[:800]}\n\n"
-                    "Rate relevance 1-10 (integer only):"
-                )
-            ),
-        ]
-        raw = invoke_claude(messages, cost_metrics=cost_metrics, temperature=0.0)
-        # Extract first number from response
-        import re
-        nums = re.findall(r"\d+", raw)
-        return float(nums[0]) if nums else 5.0
-    except Exception:
-        return 5.0  # Default mid-range score on error
+    """
+    Score a source's relevance (1–10) to the topic.
+
+    PERFORMANCE NOTE
+    ----------------
+    Previously this made ONE Claude API call per source.  With ~8 results per
+    query and several queries, that meant 20-40 sequential API calls just for
+    scoring — slow (30s+) and expensive, and a frequent cause of the pipeline
+    appearing to "stall" on memory-limited hosts like Railway.
+
+    We now use a fast, FREE keyword-overlap heuristic (score_relevance) that
+    runs instantly with no API call.  Tavily already returns results ranked by
+    relevance, so this heuristic is more than sufficient for filtering, and the
+    downstream Classification Agent still uses Claude for quality labelling.
+    """
+    # Fast local heuristic — no API call, no tokens, instant.
+    score = call_tool("score_relevance", topic=topic, text=snippet)
+    # Guarantee a minimum of 4.0 when there is real content so that legitimate
+    # sources from a trusted search provider are not over-filtered.
+    if snippet and score < 4.0:
+        score = 4.0
+    return float(score)
 
 
 def research_agent_node(state: ResearchState) -> dict[str, Any]:
@@ -93,6 +96,11 @@ def research_agent_node(state: ResearchState) -> dict[str, Any]:
 
         # ── OBSERVATION: process each result ──────────────────────────────────
         for src in results:
+            # Early-exit: stop scraping the moment we have enough sources.
+            # This prevents wasted scrape calls (and time) after the target
+            # is met within a single query's result batch.
+            if len(collected) >= config.max_sources:
+                break
             if src.url in seen_urls or not src.url:
                 continue  # Skip duplicates
             seen_urls.add(src.url)

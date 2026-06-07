@@ -49,10 +49,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Global CSS ────────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-/* Progress bar colour */
+# ── Theme (Dark / Light) ──────────────────────────────────────────────────────
+# Component CSS that is shared by both themes (pills, cards, etc.).  Colours that
+# differ between themes are filled in by _inject_theme_css() below.
+_SHARED_CSS = """
+/* Progress bar colour (same in both themes) */
 .stProgress .st-bo { background-color: #3498db; }
 
 /* Mode badge pills */
@@ -63,39 +64,92 @@ st.markdown("""
 .mode-full       { background:#d4edda; color:#155724; }
 .mode-playground { background:#cce5ff; color:#004085; }
 
-/* Metric cards */
-.metric-card {
-    background:#f8f9fa; border-radius:8px; padding:14px;
-    border-left:4px solid #3498db; margin:4px 0;
-}
+/* Score colours */
 .score-high { color:#27ae60; font-weight:bold; font-size:1.4rem; }
 .score-low  { color:#e74c3c; font-weight:bold; font-size:1.4rem; }
 
-/* Entity table */
-.entity-tag {
-    display:inline-block; padding:2px 8px; border-radius:10px;
-    background:#e8f4fd; color:#1a5276; font-size:0.82rem;
-    margin:2px;
-}
-
-/* File upload box */
+/* File upload pill */
 .file-pill {
     display:inline-block; padding:3px 10px; border-radius:12px;
     font-size:0.78rem; font-weight:600; margin-bottom:6px;
     background:#fff3cd; color:#856404;
 }
+"""
+
+# Per-theme colour tokens.  We override Streamlit's main containers so the whole
+# page (not just our custom elements) switches between light and dark.
+_LIGHT_CSS = """
+.stApp { background-color: #ffffff; color: #1a1a1a; }
+section[data-testid="stSidebar"] { background-color: #f4f6f8; }
+.metric-card {
+    background:#f8f9fa; border-radius:8px; padding:14px;
+    border-left:4px solid #3498db; margin:4px 0; color:#1a1a1a;
+}
+.entity-tag {
+    display:inline-block; padding:2px 8px; border-radius:10px;
+    background:#e8f4fd; color:#1a5276; font-size:0.82rem; margin:2px;
+}
 .file-info-card {
     background:#fffdf0; border:1px solid #ffc107; border-radius:8px;
-    padding:10px 14px; margin:8px 0; font-size:0.88rem;
+    padding:10px 14px; margin:8px 0; font-size:0.88rem; color:#1a1a1a;
 }
-
-/* Footer branding */
 .l2-footer {
     text-align:center; padding:12px; color:#6c757d;
     font-size:0.80rem; border-top:1px solid #e9ecef; margin-top:24px;
 }
-</style>
-""", unsafe_allow_html=True)
+"""
+
+_DARK_CSS = """
+.stApp { background-color: #0e1117; color: #e6e6e6; }
+section[data-testid="stSidebar"] { background-color: #161a23; }
+/* Make headings, paragraphs and markdown text light on dark */
+.stApp h1, .stApp h2, .stApp h3, .stApp h4,
+.stApp p, .stApp li, .stApp span, .stApp label,
+.stApp .stMarkdown { color: #e6e6e6 !important; }
+/* Inputs / text areas */
+.stApp textarea, .stApp input, .stApp .stTextInput input,
+.stApp .stSelectbox div[data-baseweb="select"] {
+    background-color:#1c2230 !important; color:#e6e6e6 !important;
+}
+/* Dataframes / tables */
+.stApp [data-testid="stTable"], .stApp [data-testid="stDataFrame"] {
+    background-color:#161a23; color:#e6e6e6;
+}
+.metric-card {
+    background:#1c2230; border-radius:8px; padding:14px;
+    border-left:4px solid #3498db; margin:4px 0; color:#e6e6e6;
+}
+.entity-tag {
+    display:inline-block; padding:2px 8px; border-radius:10px;
+    background:#22384d; color:#9ecbff; font-size:0.82rem; margin:2px;
+}
+.file-info-card {
+    background:#2a2615; border:1px solid #ffc107; border-radius:8px;
+    padding:10px 14px; margin:8px 0; font-size:0.88rem; color:#f0e6c0;
+}
+.l2-footer {
+    text-align:center; padding:12px; color:#9aa4b2;
+    font-size:0.80rem; border-top:1px solid #2a2f3a; margin-top:24px;
+}
+"""
+
+
+def _inject_theme_css(theme: str) -> None:
+    """
+    Inject the CSS for the chosen theme ("Light" or "Dark").
+
+    Called once near the top of every script run.  The chosen theme is read
+    from st.session_state["app_theme"], which is set by the sidebar toggle and
+    persists across reruns — so changing the toggle re-runs the script and this
+    function re-injects the matching colours.
+    """
+    palette = _DARK_CSS if theme == "Dark" else _LIGHT_CSS
+    st.markdown(f"<style>{_SHARED_CSS}\n{palette}</style>", unsafe_allow_html=True)
+
+
+# Read the persisted theme (defaults to Light on first load) and apply it.
+_active_theme = st.session_state.get("app_theme", "Light")
+_inject_theme_css(_active_theme)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -148,6 +202,19 @@ def render_sidebar() -> str:
         )
         st.title("Research Assistant")
         st.caption("Powered by L2 Team")
+        st.divider()
+
+        # ── Theme toggle (Dark / Light) ───────────────────────────────────────
+        # The widget writes to st.session_state["app_theme"], which is read at
+        # the top of the script to inject the matching CSS palette.  Changing it
+        # triggers a rerun, so the new theme applies immediately.
+        st.radio(
+            "🌓 Theme",
+            options=["Light", "Dark"],
+            key="app_theme",
+            horizontal=True,
+            help="Switch between light and dark appearance.",
+        )
         st.divider()
 
         # ── API key warnings ──────────────────────────────────────────────────

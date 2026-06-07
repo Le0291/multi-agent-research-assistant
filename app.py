@@ -53,38 +53,110 @@ st.set_page_config(
 # Component CSS that is shared by both themes (pills, cards, etc.).  Colours that
 # differ between themes are filled in by _inject_theme_css() below.
 _SHARED_CSS = """
-/* Progress bar colour (same in both themes) */
+/* ── Inter font (Stitch design system) ──────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+.stApp, .stApp * { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+
+/* Thin scrollbar — matches Stitch dark theme */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3f4850; border-radius: 10px; }
+
+/* Progress bar — Stitch primary (#3498db) */
 .stProgress .st-bo { background-color: #3498db; }
 
-/* Mode badge pills — high specificity + !important so theme text rules
-   (e.g. the dark-mode "make all text light") can never wash them out. */
+/* ── Mode badge pills ────────────────────────────────────────────────────── */
 .mode-pill {
-    display:inline-block; padding:3px 10px; border-radius:12px;
-    font-size:0.78rem; font-weight:600; margin-bottom:6px;
+    display:inline-block; padding:4px 12px; border-radius:12px;
+    font-size:0.75rem; font-weight:600; letter-spacing:0.04em;
+    margin-bottom:8px; text-transform:uppercase;
 }
-.stApp .mode-full       { background:#d4edda !important; color:#155724 !important; }
-.stApp .mode-playground { background:#cce5ff !important; color:#004085 !important; }
+.stApp .mode-full       { background:#0f3320 !important; color:#61de8a !important;
+                           border:1px solid rgba(97,222,138,0.35) !important; }
+.stApp .mode-playground { background:#0d2240 !important; color:#92ccff !important;
+                           border:1px solid rgba(146,204,255,0.35) !important; }
 .stApp .file-pill {
-    display:inline-block; padding:3px 10px; border-radius:12px;
-    font-size:0.78rem; font-weight:600; margin-bottom:6px;
-    background:#fff3cd !important; color:#856404 !important;
+    display:inline-block; padding:4px 12px; border-radius:12px;
+    font-size:0.75rem; font-weight:600; margin-bottom:8px;
+    background:#3d2a00 !important; color:#ffba4b !important;
+    border:1px solid rgba(255,186,75,0.35) !important;
 }
 
-/* Score colours (also protected with !important) */
-.stApp .score-high { color:#27ae60 !important; font-weight:bold; font-size:1.4rem; }
-.stApp .score-low  { color:#e74c3c !important; font-weight:bold; font-size:1.4rem; }
+/* ── Score colours ──────────────────────────────────────────────────────── */
+.stApp .score-high { color:#61de8a !important; font-weight:700; font-size:1.4rem; }
+.stApp .score-low  { color:#ffb4ab !important; font-weight:700; font-size:1.4rem; }
+
+/* ── Bento-grid (metric cards) ──────────────────────────────────────────── */
+.bento-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
+    gap:8px; margin:12px 0;
+}
+.bento-card {
+    border-radius:12px; padding:14px 12px; text-align:center;
+    border:1px solid rgba(63,72,80,0.8);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+.bento-card .bc-value {
+    font-size:1.6rem; font-weight:700; line-height:1.2;
+    font-family:'Inter',sans-serif;
+}
+.bento-card .bc-label {
+    font-size:0.70rem; font-weight:500; letter-spacing:0.05em;
+    text-transform:uppercase; margin-top:4px; opacity:0.75;
+}
+
+/* ── Glass card (general purpose) ──────────────────────────────────────── */
+.glass-card {
+    border-radius:12px; padding:16px;
+    border:1px solid rgba(255,255,255,0.06);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+
+/* ── Nav item (sidebar) ─────────────────────────────────────────────────── */
+.nav-item {
+    display:flex; align-items:center; gap:10px; padding:8px 12px;
+    border-radius:8px; font-size:0.88rem; font-weight:500;
+    margin-bottom:2px; cursor:pointer; transition:background 0.15s;
+}
+.nav-item.active {
+    border-right:2px solid #92ccff; /* Stitch active indicator */
+}
 """
 
 # Per-theme colour tokens.  We override Streamlit's main containers so the whole
 # page (not just our custom elements) switches between light and dark.
 _LIGHT_CSS = """
-.stApp { background-color: #ffffff; color: #1a1a1a; }
-[data-testid="stHeader"] { background-color: #ffffff; }
-section[data-testid="stSidebar"] { background-color: #f4f6f8; }
-.metric-card {
-    background:#f8f9fa; border-radius:8px; padding:14px;
-    border-left:4px solid #3498db; margin:4px 0; color:#1a1a1a;
+/* ── Stitch light tokens ─────────────────────────────────────────────────── */
+.stApp { background-color: #f8fafc; color: #1a1a1a; }
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] { background-color: #f8fafc !important; }
+[data-testid="stHeader"] { background-color: #f8fafc; border-bottom:1px solid #e2e8f0; }
+section[data-testid="stSidebar"] {
+    background-color: #f0f4f8 !important;
+    border-right:1px solid #e2e8f0 !important;
 }
+
+/* Active nav in light mode */
+.nav-item.active { color:#006397; background:#e8f4ff; border-right:2px solid #006397; }
+.nav-item { color:#475569; }
+.nav-item:hover { background:#e2eaf4; }
+
+.metric-card {
+    background:#ffffff; border-radius:12px; padding:14px;
+    border:1px solid #e2e8f0; border-left:4px solid #006397;
+    margin:4px 0; color:#1a1a1a;
+    box-shadow:0 1px 3px rgba(0,0,0,0.06);
+}
+.bento-card {
+    background:#ffffff; color:#1a1a1a;
+    box-shadow:0 1px 4px rgba(0,0,0,0.08);
+}
+.bento-card .bc-value { color:#006397; }
+.bento-card .bc-label { color:#64748b; }
+.glass-card { background:#ffffff; border-color:#e2e8f0; }
 .entity-tag {
     display:inline-block; padding:2px 8px; border-radius:10px;
     background:#e8f4fd; color:#1a5276; font-size:0.82rem; margin:2px;
@@ -94,192 +166,227 @@ section[data-testid="stSidebar"] { background-color: #f4f6f8; }
     padding:10px 14px; margin:8px 0; font-size:0.88rem; color:#1a1a1a;
 }
 .l2-footer {
-    text-align:center; padding:12px; color:#6c757d;
-    font-size:0.80rem; border-top:1px solid #e9ecef; margin-top:24px;
+    text-align:center; padding:12px; color:#64748b;
+    font-size:0.80rem; border-top:1px solid #e2e8f0; margin-top:24px;
 }
+
+/* Light mode: restore pill backgrounds */
+.stApp .mode-full       { background:#dcfce7 !important; color:#166534 !important;
+                           border:1px solid rgba(22,101,52,0.3) !important; }
+.stApp .mode-playground { background:#dbeafe !important; color:#1e40af !important;
+                           border:1px solid rgba(30,64,175,0.3) !important; }
+.stApp .file-pill { background:#fef3c7 !important; color:#92400e !important;
+                    border:1px solid rgba(146,64,14,0.3) !important; }
+.stApp .score-high { color:#15803d !important; }
+.stApp .score-low  { color:#dc2626 !important; }
 """
 
 _DARK_CSS = """
-/* Main containers + the top header toolbar */
+/* ── Stitch dark tokens ──────────────────────────────────────────────────── */
+/* surface-dim=#101418  container=#1c2024  container-high=#262a2f
+   container-highest=#31353a  container-lowest=#0a0f13
+   outline-variant=#3f4850  outline=#89929b
+   on-surface=#e0e3e8  on-surface-variant=#bfc7d2
+   primary=#92ccff  primary-container=#3498db
+   secondary=#61de8a  tertiary=#ffba4b                                        */
+
+/* Main containers */
 .stApp,
 [data-testid="stAppViewContainer"],
-[data-testid="stMain"] { background-color: #0e1117 !important; color: #e6e6e6 !important; }
-[data-testid="stHeader"] { background-color: #0e1117 !important; }
-[data-testid="stToolbar"] { color: #e6e6e6 !important; }
-section[data-testid="stSidebar"] { background-color: #161a23 !important; }
+[data-testid="stMain"] { background-color: #101418 !important; color: #e0e3e8 !important; }
+[data-testid="stHeader"] { background-color: #101418 !important;
+                            border-bottom:1px solid #3f4850 !important; }
+[data-testid="stToolbar"] { color: #e0e3e8 !important; }
 
-/* Body text — target Streamlit's markdown containers and common text elements.
-   NOTE: we deliberately do NOT use a bare `span` selector here, because that
-   would override the coloured badge pills above. */
-.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+/* Sidebar — surface-container-lowest */
+section[data-testid="stSidebar"] {
+    background-color: #0a0f13 !important;
+    border-right:1px solid #3f4850 !important;
+}
+
+/* Nav item colours for dark mode */
+.nav-item { color: #bfc7d2; }
+.nav-item.active { color:#92ccff; background:#262a2f; border-right:2px solid #92ccff; }
+.nav-item:hover { background:#1c2024; }
+
+/* Body text */
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
+    color: #e0e3e8 !important;
+}
 .stApp p, .stApp li, .stApp label,
 .stApp [data-testid="stMarkdownContainer"],
 .stApp [data-testid="stWidgetLabel"],
 .stApp [data-testid="stMetricValue"],
-.stApp [data-testid="stMetricLabel"] { color: #e6e6e6 !important; }
+.stApp [data-testid="stMetricLabel"] { color: #e0e3e8 !important; }
 
-/* Caption / help text slightly dimmer */
-.stApp [data-testid="stCaptionContainer"] { color: #9aa4b2 !important; }
+/* Caption / muted text */
+.stApp [data-testid="stCaptionContainer"] { color: #bfc7d2 !important; }
 
 /* Inputs, text areas, selectboxes */
 .stApp textarea, .stApp input,
 .stApp .stTextInput input, .stApp .stTextArea textarea,
 .stApp .stSelectbox div[data-baseweb="select"] > div {
-    background-color:#1c2230 !important; color:#e6e6e6 !important;
-    border-color:#2a2f3a !important;
+    background-color: #1c2024 !important; color: #e0e3e8 !important;
+    border-color: #3f4850 !important;
 }
 
-/* Secondary buttons (e.g. "Demo Topic") — primary blue button keeps its colour */
+/* Secondary buttons */
 .stApp .stButton button[kind="secondary"],
 .stApp .stDownloadButton button {
-    background-color:#1c2230 !important; color:#e6e6e6 !important;
-    border:1px solid #2a2f3a !important;
+    background-color: #1c2024 !important; color: #e0e3e8 !important;
+    border: 1px solid #3f4850 !important;
 }
 
-/* ── Expanders ───────────────────────────────────────────────────────────── */
+/* ── Expanders (Stitch surface-container) ─────────────────────────────── */
 .stApp [data-testid="stExpander"] {
-    background-color:#161a23 !important; border:1px solid #2a2f3a !important;
+    background-color: #1c2024 !important;
+    border: 1px solid #3f4850 !important;
+    border-radius: 12px !important;
 }
-.stApp [data-testid="stExpander"] summary { color:#e6e6e6 !important; }
-.stApp [data-testid="stExpander"] summary svg { fill:#e6e6e6 !important; }
+.stApp [data-testid="stExpander"] summary { color: #e0e3e8 !important; }
+.stApp [data-testid="stExpander"] summary svg { fill: #e0e3e8 !important; }
 
-/* Force EVERY element inside an open expander to have a dark background.
-   This is the "nuclear" fix — Streamlit injects white backgrounds via
-   deeply-nested divs that regular descendant selectors cannot beat.
-   We then explicitly restore colours for pills/buttons below. */
+/* Nuclear fix — force dark background into all open expander content */
 .stApp details[open] > div,
 .stApp details[open] > div *:not(button):not(.mode-full):not(.mode-playground):not(.file-pill):not(.score-high):not(.score-low) {
-    background-color: #161a23 !important;
-    color: #e6e6e6 !important;
-    border-color: #2a2f3a !important;
+    background-color: #1c2024 !important;
+    color: #e0e3e8 !important;
+    border-color: #3f4850 !important;
 }
 
-/* Restore pill / badge colours (they were overridden by the rule above) */
-.stApp details[open] .mode-full       { background:#d4edda !important; color:#155724 !important; }
-.stApp details[open] .mode-playground { background:#cce5ff !important; color:#004085 !important; }
-.stApp details[open] .file-pill       { background:#fff3cd !important; color:#856404 !important; }
-.stApp details[open] .score-high      { color:#27ae60 !important; }
-.stApp details[open] .score-low       { color:#e74c3c !important; }
+/* Restore pill / badge colours */
+.stApp details[open] .mode-full       { background:#0f3320 !important; color:#61de8a !important;
+                                        border:1px solid rgba(97,222,138,0.35) !important; }
+.stApp details[open] .mode-playground { background:#0d2240 !important; color:#92ccff !important;
+                                        border:1px solid rgba(146,204,255,0.35) !important; }
+.stApp details[open] .file-pill       { background:#3d2a00 !important; color:#ffba4b !important;
+                                        border:1px solid rgba(255,186,75,0.35) !important; }
+.stApp details[open] .score-high      { color:#61de8a !important; }
+.stApp details[open] .score-low       { color:#ffb4ab !important; }
 
-/* Restore file-uploader dropzone dashed border */
+/* Restore file-uploader dropzone */
 .stApp details[open] [data-testid="stFileUploadDropzone"] {
-    background-color: #1c2230 !important;
-    border: 2px dashed #3a4055 !important;
+    background-color: #1c2024 !important;
+    border: 2px dashed #3f4850 !important;
 }
 
-/* Restore primary (blue) buttons inside expanders */
+/* Restore primary buttons inside expanders */
 .stApp details[open] button[kind="primary"],
 .stApp details[open] .stButton > button[data-testid="stBaseButton-primary"] {
-    background-color: #3498db !important;
-    color: #ffffff !important;
+    background-color: #3498db !important; color: #ffffff !important;
     border-color: #3498db !important;
 }
-
-/* Restore secondary buttons */
+/* Restore secondary buttons inside expanders */
 .stApp details[open] button[kind="secondary"],
 .stApp details[open] .stButton > button[data-testid="stBaseButton-secondary"] {
-    background-color: #1c2230 !important;
-    color: #e6e6e6 !important;
-    border-color: #3a4055 !important;
+    background-color: #1c2024 !important; color: #e0e3e8 !important;
+    border-color: #3f4850 !important;
 }
 
 /* Dataframes / tables */
 .stApp [data-testid="stTable"], .stApp [data-testid="stDataFrame"] {
-    background-color:#161a23 !important; color:#e6e6e6 !important;
+    background-color: #1c2024 !important; color: #e0e3e8 !important;
 }
 
+/* ── Custom component colours (Stitch tokens) ────────────────────────── */
 .metric-card {
-    background:#1c2230; border-radius:8px; padding:14px;
-    border-left:4px solid #3498db; margin:4px 0; color:#e6e6e6;
+    background: #1c2024; border-radius: 12px; padding: 14px;
+    border: 1px solid #3f4850; border-left: 4px solid #3498db;
+    margin: 4px 0; color: #e0e3e8;
+}
+.bento-card {
+    background: rgba(28,32,36,0.9); color: #e0e3e8;
+    border-color: #3f4850;
+}
+.bento-card .bc-value { color: #92ccff; }
+.bento-card .bc-label { color: #bfc7d2; }
+.glass-card {
+    background: rgba(28,32,36,0.85); border-color: rgba(255,255,255,0.06);
 }
 .entity-tag {
     display:inline-block; padding:2px 8px; border-radius:10px;
-    background:#22384d; color:#9ecbff; font-size:0.82rem; margin:2px;
+    background:#1a2d45; color:#92ccff; font-size:0.82rem; margin:2px;
 }
 .file-info-card {
-    background:#2a2615; border:1px solid #ffc107; border-radius:8px;
-    padding:10px 14px; margin:8px 0; font-size:0.88rem; color:#f0e6c0;
+    background: #2a2615; border: 1px solid #ffba4b; border-radius: 12px;
+    padding: 10px 14px; margin: 8px 0; font-size: 0.88rem; color: #f0e6c0;
 }
 .l2-footer {
-    text-align:center; padding:12px; color:#9aa4b2;
-    font-size:0.80rem; border-top:1px solid #2a2f3a; margin-top:24px;
+    text-align:center; padding:12px; color:#bfc7d2;
+    font-size:0.80rem; border-top:1px solid #3f4850; margin-top:24px;
 }
 
-/* ── Form containers ─────────────────────────────────────────────────────── */
+/* ── Form containers ─────────────────────────────────────────────────── */
 .stApp [data-testid="stForm"] {
-    background-color: #161a23 !important;
-    border: 1px solid #2a2f3a !important;
-    border-radius: 8px !important;
+    background-color: #1c2024 !important;
+    border: 1px solid #3f4850 !important;
+    border-radius: 12px !important;
 }
 
-/* ── File upload — full widget stack ─────────────────────────────────────── */
-/* Outer wrapper */
+/* ── File upload widget ──────────────────────────────────────────────── */
 .stApp [data-testid="stFileUploader"] {
-    background-color: #1c2230 !important;
-    border-radius: 8px !important;
+    background-color: #1c2024 !important; border-radius: 12px !important;
 }
-/* Every child div inside the uploader (catches the white inner box) */
 .stApp [data-testid="stFileUploader"] > div,
 .stApp [data-testid="stFileUploader"] > div > div {
-    background-color: #1c2230 !important;
-    border-radius: 8px !important;
+    background-color: #1c2024 !important; border-radius: 12px !important;
 }
-/* The drag-and-drop dropzone (two possible testids across Streamlit versions) */
 .stApp [data-testid="stFileUploadDropzone"],
 .stApp [data-testid="stFileUploaderDropzone"],
 .stApp section[data-testid="stFileUploadDropzone"] {
-    background-color: #1c2230 !important;
-    border: 2px dashed #3a4055 !important;
-    border-radius: 8px !important;
+    background-color: #1c2024 !important;
+    border: 2px dashed #3f4850 !important;
+    border-radius: 12px !important;
 }
-/* All text inside the dropzone */
 .stApp [data-testid="stFileUploadDropzone"] *,
-.stApp [data-testid="stFileUploaderDropzone"] * {
-    color: #9aa4b2 !important;
-}
-/* Uploaded filename label */
-.stApp [data-testid="stFileUploaderFileName"] { color: #e6e6e6 !important; }
-/* The small "×" / browse button inside the uploader */
-.stApp button[data-testid="stBaseButton-minimal"] { color: #9aa4b2 !important; }
+.stApp [data-testid="stFileUploaderDropzone"] * { color: #bfc7d2 !important; }
+.stApp [data-testid="stFileUploaderFileName"] { color: #e0e3e8 !important; }
+.stApp button[data-testid="stBaseButton-minimal"] { color: #bfc7d2 !important; }
 
-/* ── Alert / info / success / warning / error boxes ─────────────────────── */
-.stApp [data-testid="stAlertContainer"] {
-    background-color: #1c2230 !important;
-}
+/* ── Alert boxes ────────────────────────────────────────────────────── */
+.stApp [data-testid="stAlertContainer"] { background-color: #1c2024 !important; }
 .stApp [data-testid="stAlertContainer"] p,
-.stApp [data-testid="stAlertContainer"] div { color: #e6e6e6 !important; }
+.stApp [data-testid="stAlertContainer"] div { color: #e0e3e8 !important; }
 
-/* ── Horizontal rule ─────────────────────────────────────────────────────── */
-.stApp hr { border-color: #2a2f3a !important; }
+/* ── Divider ─────────────────────────────────────────────────────────── */
+.stApp hr { border-color: #3f4850 !important; }
 
-/* ── Dropdown menu (selectbox options) ───────────────────────────────────── */
+/* ── Dropdown (selectbox) ────────────────────────────────────────────── */
 [data-baseweb="popover"] [data-baseweb="menu"] {
-    background-color: #1c2230 !important;
+    background-color: #1c2024 !important;
+    border: 1px solid #3f4850 !important;
 }
-[data-baseweb="popover"] [data-baseweb="menu"] li { color: #e6e6e6 !important; }
+[data-baseweb="popover"] [data-baseweb="menu"] li { color: #e0e3e8 !important; }
 [data-baseweb="popover"] [data-baseweb="menu"] li:hover {
-    background-color: #2a2f3a !important;
+    background-color: #262a2f !important;
 }
 
-/* ── Spinner message ─────────────────────────────────────────────────────── */
-.stApp [data-testid="stSpinner"] p { color: #e6e6e6 !important; }
+/* ── Spinner ─────────────────────────────────────────────────────────── */
+.stApp [data-testid="stSpinner"] p { color: #e0e3e8 !important; }
 
-/* ── Caption / small helper text ─────────────────────────────────────────── */
-.stApp small { color: #9aa4b2 !important; }
+/* ── Small / caption text ────────────────────────────────────────────── */
+.stApp small { color: #bfc7d2 !important; }
 
-/* ── Selectbox selected value text ───────────────────────────────────────── */
+/* ── Selectbox value text ────────────────────────────────────────────── */
 .stApp .stSelectbox [data-baseweb="select"] [data-baseweb="value"] {
-    color: #e6e6e6 !important;
+    color: #e0e3e8 !important;
 }
 
-/* ── Tabs ────────────────────────────────────────────────────────────────── */
-.stApp [data-baseweb="tab"] { color: #9aa4b2 !important; }
-.stApp [data-baseweb="tab"][aria-selected="true"] { color: #e6e6e6 !important; }
-.stApp [data-baseweb="tab-list"] { background-color: #0e1117 !important; }
+/* ── Tabs ────────────────────────────────────────────────────────────── */
+.stApp [data-baseweb="tab"] { color: #bfc7d2 !important; }
+.stApp [data-baseweb="tab"][aria-selected="true"] { color: #92ccff !important; }
+.stApp [data-baseweb="tab-list"] { background-color: #101418 !important; }
 
-/* ── Progress bar background track ───────────────────────────────────────── */
-.stApp [data-testid="stProgressBar"] > div {
-    background-color: #2a2f3a !important;
+/* ── Progress bar track ──────────────────────────────────────────────── */
+.stApp [data-testid="stProgressBar"] > div { background-color: #3f4850 !important; }
+
+/* ── Primary button glow on dark ─────────────────────────────────────── */
+.stApp .stButton > button[data-testid="stBaseButton-primary"],
+.stApp .stButton button[kind="primary"] {
+    background-color: #3498db !important;
+    border-color: #3498db !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 12px rgba(52,152,219,0.25) !important;
 }
 """
 
@@ -347,38 +454,51 @@ def _get_pipeline_graph():
 
 def render_sidebar() -> str:
     """
-    Render the sidebar and return the selected mode string.
+    Render the sidebar (Stitch design) and return the selected mode string.
 
-    Layout:
-      ┌────────────────────────────┐
-      │  [logo]  Research Asst.    │
-      │  ─────────────────         │
-      │  ■ Full Pipeline           │  ← default, competition requirement
-      │                            │
-      │  Agent Playground          │  ← innovation feature
-      │  ○ Research Only           │
-      │  ○ Classification Only     │
-      │  ○ NER Only                │
-      │  ○ Browser Only            │
-      │  ○ Analysis Only           │
-      │  ○ Writer Only             │
-      │  ○ Critic Only             │
-      │  ○ Illustration Only       │
-      └────────────────────────────┘
+    Uses Material Symbols icons and the Stitch nav-item style with active-state
+    left border indicator.  Falls back gracefully if the CDN is unavailable.
     """
-    with st.sidebar:
-        st.image(
-            "https://img.icons8.com/fluency/96/artificial-intelligence.png",
-            width=72,
-        )
-        st.title("Research Assistant")
-        st.caption("Powered by L2 Team")
-        st.divider()
+    # Icon map for each mode
+    _MODE_ICONS: dict[str, str] = {
+        "Full Pipeline":       "hub",
+        "Research Only":       "search",
+        "Classification Only": "category",
+        "NER Only":            "label",
+        "Browser Only":        "language",
+        "Analysis Only":       "analytics",
+        "Writer Only":         "edit_note",
+        "Critic Only":         "rate_review",
+        "Illustration Only":   "image",
+    }
 
-        # ── Theme toggle (Dark / Light) ───────────────────────────────────────
-        # The widget writes to st.session_state["app_theme"], which is read at
-        # the top of the script to inject the matching CSS palette.  Changing it
-        # triggers a rerun, so the new theme applies immediately.
+    with st.sidebar:
+        # ── Brand header ─────────────────────────────────────────────────────
+        st.markdown(
+            """
+            <div style="padding:20px 4px 16px 4px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span class="material-symbols-outlined"
+                          style="font-size:28px;color:#92ccff;">
+                        neurology
+                    </span>
+                    <div>
+                        <div style="font-size:1rem;font-weight:700;
+                                    letter-spacing:-0.01em;color:#92ccff;">
+                            Research Assistant
+                        </div>
+                        <div style="font-size:0.70rem;color:#bfc7d2;
+                                    letter-spacing:0.04em;text-transform:uppercase;">
+                            Powered by L2 Team
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # ── Theme toggle ──────────────────────────────────────────────────────
         st.radio(
             "🌓 Theme",
             options=["Light", "Dark"],
@@ -393,20 +513,38 @@ def render_sidebar() -> str:
             st.warning(w, icon="⚠️")
 
         # ── Mode selector ─────────────────────────────────────────────────────
-        st.markdown("### 🎛️ Operating Mode")
-
-        # Single unified dropdown.  ALL_MODES already starts with "Full Pipeline"
-        # (the default / competition mode), followed by every single-agent mode.
-        # Selecting "Full Pipeline" runs the complete workflow; any other choice
-        # runs that one agent in isolation via the Agent Playground.
-        selected_mode = st.selectbox(
-            "Choose an agent",
-            ALL_MODES,                 # ["Full Pipeline", "Research Only", …]
-            index=0,                   # default to Full Pipeline
-            key="mode_selector",
+        st.markdown(
+            "<div style='font-size:0.70rem;font-weight:600;letter-spacing:0.08em;"
+            "text-transform:uppercase;color:#89929b;padding:0 4px 8px 4px;'>"
+            "Navigation</div>",
+            unsafe_allow_html=True,
         )
 
-        # Show a coloured badge indicating which kind of mode is active
+        selected_mode = st.selectbox(
+            "Choose an agent",
+            ALL_MODES,
+            index=0,
+            key="mode_selector",
+            label_visibility="collapsed",
+        )
+
+        # Render nav items as Stitch-styled rows
+        for mode in ALL_MODES:
+            is_active = mode == selected_mode
+            icon = _MODE_ICONS.get(mode, "chevron_right")
+            active_cls  = "active" if is_active else ""
+            section_lbl = "Full Pipeline" if mode == "Full Pipeline" else mode
+            st.markdown(
+                f"""<div class="nav-item {active_cls}">
+                    <span class="material-symbols-outlined"
+                          style="font-size:18px;flex-shrink:0;">{icon}</span>
+                    <span style="font-size:0.875rem;">{section_lbl}</span>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
+        # ── Mode badge + description ──────────────────────────────────────────
+        st.divider()
         if selected_mode == "Full Pipeline":
             st.markdown(
                 '<span class="mode-pill mode-full">📋 Competition Requirement</span>',
@@ -417,31 +555,35 @@ def render_sidebar() -> str:
                 '<span class="mode-pill mode-playground">🧪 Agent Playground</span>',
                 unsafe_allow_html=True,
             )
-
-        # ── Mode description ──────────────────────────────────────────────────
-        st.markdown("---")
-        st.markdown("**Mode description**")
         st.info(MODE_DESCRIPTIONS.get(selected_mode, ""), icon="ℹ️")
 
         # ── System config ─────────────────────────────────────────────────────
-        st.markdown("---")
-        st.markdown("### ⚙️ Configuration")
-        st.markdown(f"**Model:** `{config.anthropic_model}`")
-        st.markdown(f"**Min sources:** {config.min_sources}")
-        st.markdown(f"**Max revisions:** {config.max_revisions}")
-        st.markdown(f"**Critic pass score:** {config.critic_pass_score}/10")
+        st.divider()
+        st.markdown(
+            "<div style='font-size:0.70rem;font-weight:600;letter-spacing:0.08em;"
+            "text-transform:uppercase;color:#89929b;padding:0 4px 8px 4px;'>"
+            "Configuration</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f"<div style='font-size:0.82rem;line-height:1.9;'>"
+            f"<b>Model:</b> <code>{config.anthropic_model}</code><br>"
+            f"<b>Min sources:</b> {config.min_sources}<br>"
+            f"<b>Max revisions:</b> {config.max_revisions}<br>"
+            f"<b>Critic pass:</b> {config.critic_pass_score}/10</div>",
+            unsafe_allow_html=True,
+        )
 
         # ── MCP tools list ────────────────────────────────────────────────────
-        with st.expander("🔧 Available MCP Tools"):
+        with st.expander("🔧 MCP Tools"):
             from src.tools.mcp_tools import list_tools  # noqa: PLC0415
             for tool in list_tools():
                 st.markdown(f"- **{tool['name']}**")
 
-        st.markdown("---")
-        # ── Branding ─────────────────────────────────────────────────────────
+        # ── Footer ────────────────────────────────────────────────────────────
         st.markdown(
-            "<div style='text-align:center; color:#6c757d; font-size:0.78rem;'>"
-            "Powered by <b>L2 team</b></div>",
+            "<div class='l2-footer'>Multi-Agent Research Assistant<br>"
+            "<span style='opacity:0.6;font-size:0.72rem;'>L2 Team · 2025</span></div>",
             unsafe_allow_html=True,
         )
 
@@ -596,8 +738,14 @@ def _stream_full_pipeline(topic: str) -> None:
     ]
     TOTAL = len(STEPS)
 
-    # Pre-create expander containers so they appear in order
-    st.markdown("### 🔄 Agent Progress")
+    # ── Agent progress section (Stitch-styled) ────────────────────────────────
+    _is_dark  = st.session_state.get("app_theme", "Dark") == "Dark"
+    _head_col = "#92ccff" if _is_dark else "#006397"
+    st.markdown(
+        f"<h3 style='font-size:1rem;font-weight:600;color:{_head_col};"
+        f"letter-spacing:-0.01em;margin:16px 0 8px 0;'>🔄 Agent Progress</h3>",
+        unsafe_allow_html=True,
+    )
     expanders: dict[str, Any] = {}
     for _, label in STEPS:
         expanders[label] = st.expander(label, expanded=False)
@@ -1079,27 +1227,66 @@ def _render_ner_result(result: dict) -> None:
         st.info("No named entities found in the provided text.")
         return
 
-    # ── Category colours (light bg / dark text — readable in both themes) ─────
-    _CAT_STYLE: dict[str, tuple[str, str]] = {
-        "person":       ("#fde8e8", "#7b1c1c"),
-        "organization": ("#e8eeff", "#1c357a"),
-        "location":     ("#e8f7e8", "#1a5c1a"),
-        "technology":   ("#fff5e0", "#7a4d00"),
-        "concept":      ("#f5e8ff", "#4c1a7a"),
-        "date":         ("#e0faf4", "#0e5c44"),
+    # ── Theme-aware category styles ────────────────────────────────────────────
+    # Dark mode uses dark-surface chips with bright accent text (Stitch tokens).
+    # Light mode uses pastel chips.
+    _is_dark = st.session_state.get("app_theme", "Dark") == "Dark"
+
+    _CAT_STYLE_DARK: dict[str, tuple[str, str, str]] = {
+        # (bg, fg, border)
+        "person":       ("#3d1212", "#ffb3b3", "rgba(255,179,179,0.30)"),
+        "organization": ("#0d1e3a", "#92ccff", "rgba(146,204,255,0.30)"),
+        "location":     ("#0d2d1a", "#61de8a", "rgba(97,222,138,0.30)"),
+        "technology":   ("#3d2a00", "#ffba4b", "rgba(255,186,75,0.30)"),
+        "concept":      ("#2a0d3a", "#c9a4ff", "rgba(201,164,255,0.30)"),
+        "date":         ("#0d3330", "#61de8a", "rgba(97,222,138,0.30)"),
+    }
+    _CAT_STYLE_LIGHT: dict[str, tuple[str, str, str]] = {
+        "person":       ("#fde8e8", "#7b1c1c", "rgba(123,28,28,0.20)"),
+        "organization": ("#e8eeff", "#1c357a", "rgba(28,53,122,0.20)"),
+        "location":     ("#e8f7e8", "#1a5c1a", "rgba(26,92,26,0.20)"),
+        "technology":   ("#fff5e0", "#7a4d00", "rgba(122,77,0,0.20)"),
+        "concept":      ("#f5e8ff", "#4c1a7a", "rgba(76,26,122,0.20)"),
+        "date":         ("#e0faf4", "#0e5c44", "rgba(14,92,68,0.20)"),
+    }
+    _CAT_STYLE = _CAT_STYLE_DARK if _is_dark else _CAT_STYLE_LIGHT
+
+    # Icon per category (Material Symbols)
+    _CAT_ICON: dict[str, str] = {
+        "person": "person", "organization": "corporate_fare",
+        "location": "location_on", "technology": "memory",
+        "concept": "lightbulb", "date": "calendar_today",
     }
 
-    # ── Summary metrics ────────────────────────────────────────────────────────
+    # ── Bento-grid metric summary ─────────────────────────────────────────────
     cat_counts = Counter(e.category for e in entities)
-    cols = st.columns(len(cat_counts) or 1)
-    for col, (cat, cnt) in zip(cols, cat_counts.most_common()):
-        col.metric(label=cat.title(), value=cnt)
+    total      = len(entities)
 
-    # ── Grouped display by category (the key view) ────────────────────────────
+    cards_html = ""
+    for cat, cnt in cat_counts.most_common():
+        bg, fg, border = _CAT_STYLE.get(cat, ("#1c2024", "#e0e3e8", "#3f4850"))
+        icon = _CAT_ICON.get(cat, "label")
+        pct  = int(cnt / total * 100) if total else 0
+        cards_html += (
+            f'<div class="bento-card" style="background:{bg};border-color:{border};">'
+            f'  <div class="bc-value" style="color:{fg};">{cnt}</div>'
+            f'  <div class="bc-label" style="color:{fg};opacity:0.75;">'
+            f'    {cat.title()}'
+            f'  </div>'
+            f'  <div style="font-size:0.65rem;opacity:0.5;margin-top:2px;">{pct}%</div>'
+            f'</div>'
+        )
+
+    st.markdown(
+        f'<div class="bento-grid">{cards_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Grouped display by category ────────────────────────────────────────────
     st.markdown("#### 🏷️ Entities by Category")
     st.caption(
-        "Each tag shows the extracted word and how many times it appeared (×N). "
-        "Grouped by entity type so you can see exactly which words were identified as what."
+        "Each chip shows the extracted word and its occurrence count (×N). "
+        "Grouped by entity type — colour-coded per the Stitch design system."
     )
 
     cat_groups: dict = {}
@@ -1108,31 +1295,40 @@ def _render_ner_result(result: dict) -> None:
 
     for cat in sorted(cat_groups.keys()):
         ents = sorted(cat_groups[cat], key=lambda x: x.count, reverse=True)
-        bg, fg = _CAT_STYLE.get(cat, ("#e8e8e8", "#333333"))
+        bg, fg, border = _CAT_STYLE.get(cat, ("#1c2024", "#e0e3e8", "#3f4850"))
+        icon = _CAT_ICON.get(cat, "label")
 
+        # Category header
         st.markdown(
-            f"<div style='margin:8px 0 4px 0;'>"
-            f"<b style='font-size:0.95rem;'>{cat.title()}</b>"
-            f"<span style='color:#888; font-size:0.8rem; margin-left:6px;'>"
+            f"<div style='display:flex;align-items:center;gap:6px;"
+            f"margin:10px 0 4px 0;'>"
+            f"<span class='material-symbols-outlined' "
+            f"style='font-size:16px;color:{fg};'>{icon}</span>"
+            f"<b style='font-size:0.92rem;color:{fg};'>{cat.title()}</b>"
+            f"<span style='font-size:0.75rem;opacity:0.55;margin-left:4px;'>"
             f"({len(ents)} entities)</span></div>",
             unsafe_allow_html=True,
         )
+
+        # Entity chips
         tags_html = "".join(
-            f'<span style="background:{bg}; color:{fg}; border:1px solid {fg}30; '
-            f'padding:4px 11px; border-radius:14px; font-size:0.84rem; '
-            f'margin:3px 2px; display:inline-block; white-space:nowrap;">'
+            f'<span style="background:{bg}; color:{fg}; border:1px solid {border}; '
+            f'padding:4px 12px; border-radius:14px; font-size:0.84rem; '
+            f'font-weight:500; margin:3px 2px; display:inline-block; '
+            f'white-space:nowrap; font-family:Inter,sans-serif;">'
             f'{e.text}'
-            f'<span style="opacity:0.55; font-size:0.72rem; margin-left:4px;">×{e.count}</span>'
+            f'<span style="opacity:0.50; font-size:0.70rem; margin-left:5px;">'
+            f'×{e.count}</span>'
             f'</span>'
             for e in ents[:25]
         )
         st.markdown(
-            f'<div style="margin-bottom:12px; line-height:2.2;">{tags_html}</div>',
+            f'<div style="margin-bottom:14px; line-height:2.4;">{tags_html}</div>',
             unsafe_allow_html=True,
         )
 
     # ── Full table (collapsed) ────────────────────────────────────────────────
-    with st.expander("📋 Full entity table (all entities, sortable)"):
+    with st.expander("📋 Full entity table (sortable)"):
         st.dataframe({
             "Entity":      [e.text     for e in entities[:80]],
             "Category":    [e.category for e in entities[:80]],
@@ -1142,26 +1338,24 @@ def _render_ner_result(result: dict) -> None:
 
     # ── Co-occurrence relationships ────────────────────────────────────────────
     if rels:
-        with st.expander(f"🔗 Co-occurrence relationships ({len(rels)} pairs)"):
+        with st.expander(f"🔗 Co-occurrence pairs ({len(rels)})"):
             st.caption(
                 "Entities that appeared in the same sentence — "
                 "a proxy for semantic relationships in the text."
             )
+            # Build entity→category lookup
+            _cat_map = {e.text: e.category for e in entities}
             for a, b in rels[:30]:
-                bg_a, fg_a = _CAT_STYLE.get(
-                    next((e.category for e in entities if e.text == a), "concept"),
-                    ("#e8e8e8", "#333"),
-                )
-                bg_b, fg_b = _CAT_STYLE.get(
-                    next((e.category for e in entities if e.text == b), "concept"),
-                    ("#e8e8e8", "#333"),
-                )
+                bg_a, fg_a, _ = _CAT_STYLE.get(_cat_map.get(a, "concept"),
+                                                ("#1c2024", "#e0e3e8", "#3f4850"))
+                bg_b, fg_b, _ = _CAT_STYLE.get(_cat_map.get(b, "concept"),
+                                                ("#1c2024", "#e0e3e8", "#3f4850"))
                 st.markdown(
-                    f'<span style="background:{bg_a};color:{fg_a};padding:2px 8px;'
-                    f'border-radius:10px;font-size:0.83rem;">{a}</span>'
-                    f' &nbsp;↔&nbsp; '
-                    f'<span style="background:{bg_b};color:{fg_b};padding:2px 8px;'
-                    f'border-radius:10px;font-size:0.83rem;">{b}</span>',
+                    f'<span style="background:{bg_a};color:{fg_a};padding:3px 10px;'
+                    f'border-radius:10px;font-size:0.83rem;font-weight:500;">{a}</span>'
+                    f'<span style="opacity:0.5;margin:0 6px;font-size:0.9rem;">↔</span>'
+                    f'<span style="background:{bg_b};color:{fg_b};padding:3px 10px;'
+                    f'border-radius:10px;font-size:0.83rem;font-weight:500;">{b}</span>',
                     unsafe_allow_html=True,
                 )
 
@@ -1338,12 +1532,36 @@ from typing import Any  # noqa: E402 (after functions that use it)
 def main() -> None:
     """Render the app: sidebar → mode → appropriate UI."""
 
-    # ── Header ────────────────────────────────────────────────────────────────
-    st.title("🔬 Multi-Agent Research Assistant")
+    # ── Inject Material Symbols CDN (needed for sidebar + NER icons) ──────────
     st.markdown(
-        "**Full Pipeline** runs all 9 agents and produces a complete report.  "
-        "**Agent Playground** lets you run any single agent in isolation.  "
-        "**Upload a file** from the sidebar to run any operation on your own documents."
+        '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?'
+        'family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">'
+        '<style>.material-symbols-outlined{font-variation-settings:'
+        "'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;"
+        "display:inline-block;vertical-align:middle;line-height:1;}</style>",
+        unsafe_allow_html=True,
+    )
+
+    # ── Stitch-styled header ──────────────────────────────────────────────────
+    _is_dark = st.session_state.get("app_theme", "Dark") == "Dark"
+    _primary  = "#92ccff" if _is_dark else "#006397"
+    _subtitle = "#bfc7d2" if _is_dark else "#64748b"
+    st.markdown(
+        f"""
+        <div style="margin-bottom:8px;">
+          <h1 style="font-size:1.6rem;font-weight:700;letter-spacing:-0.02em;
+                     color:{_primary};margin:0 0 4px 0;font-family:Inter,sans-serif;">
+            🔬 Multi-Agent Research Assistant
+          </h1>
+          <p style="font-size:0.875rem;color:{_subtitle};margin:0;line-height:1.6;">
+            <b>Full Pipeline</b> — runs all 9 LangGraph agents and produces a
+            complete cited report.&nbsp; <b>Agent Playground</b> — run any
+            single agent in isolation.&nbsp; Upload a document to analyse your
+            own files without web search.
+          </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     # ── Sidebar (returns selected mode) ───────────────────────────────────────

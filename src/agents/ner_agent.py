@@ -66,7 +66,8 @@ _TECH_REMAPS: set[str] = {
     "Vector Store", "Vector Database", "Embedding Model",
     "ReAct Agents", "ReAct Agent", "Autonomous Agent",
     "Interface Streamlit", "Gradio", "Python", "JavaScript",
-    "Format Markdown", "Markdown PDF",
+    "Format Markdown", "Markdown PDF", "Markdown / PDF", "Markdown/PDF",
+    "Programming Language", "Web Scraping",
 }
 
 # Case-insensitive lookup set for fast tech-term checking
@@ -179,12 +180,34 @@ def _extract_spacy(text: str, url: str, nlp) -> list[tuple[str, str, str]]:
         if len(surface) < 2 or len(surface) > 60:
             continue
 
-        # ── Filter 4: word count cap (max 5 words) ───────────────────────────
-        if len(surface.split()) > 5:
+        # ── Filter 4: word count cap (max 4 words) ───────────────────────────
+        if len(surface.split()) > 4:
             continue
+
+        # ── Filter 4b: strip trailing noise tokens from PERSON entities ───────
+        # SpaCy often appends adjacent words to person names:
+        # "Abdulkarim Albanna Multi-Agent" → "Abdulkarim Albanna"
+        if label == "PERSON":
+            surface = re.sub(
+                r'\s+(Multi[-\s]?Agent|Research|Assistant|System|Project|'
+                r'Agent|Model|Framework|Platform|Tool|API|Lab|Labs|Inc|Corp)s?$',
+                '', surface, flags=re.IGNORECASE,
+            ).strip()
+            if not surface:
+                continue
 
         # ── Filter 5: stop-word filter ────────────────────────────────────────
         if surface.lower() in _STOP_ENTITIES:
+            continue
+
+        # ── Filter 5b: any word in entity is a hard-stop word ─────────────────
+        # Catches "Deliverables Working", "Format Markdown" etc.
+        _HARD_STOPS = {
+            "working", "deliverables", "deliverable", "receives",
+            "format", "overview", "build", "interface",
+        }
+        words_lower = {w.lower() for w in surface.split()}
+        if words_lower & _HARD_STOPS:
             continue
 
         # ── Filter 6: pure numeric strings ───────────────────────────────────
@@ -208,8 +231,16 @@ def _extract_spacy(text: str, url: str, nlp) -> list[tuple[str, str, str]]:
             continue
 
         # ── Filter 7d: single-word generic terms via stop-entity check ────────
-        # Already handled by _STOP_ENTITIES for lowercase; also check title-case
         if surface.title().lower() in _STOP_ENTITIES or surface.lower() in _STOP_ENTITIES:
+            continue
+
+        # ── Filter 7e: mixed brand+generic concatenation (SpaCy list bleed) ───
+        # "Gradio Programming Language Python" — contains generic filler words
+        # If entity has ≥3 words AND ≥1 word is a generic connector, drop it.
+        _GENERIC_CONNECTORS = {"programming", "language", "based", "using",
+                               "via", "with", "through", "for", "and", "or"}
+        words = surface.lower().split()
+        if len(words) >= 3 and len(set(words) & _GENERIC_CONNECTORS) >= 1:
             continue
 
         # ── Filter 8: tech-term category remapping ────────────────────────────

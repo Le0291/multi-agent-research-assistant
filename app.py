@@ -56,12 +56,22 @@ _SHARED_CSS = """
 /* ── Inter font (Stitch design system) ──────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-/* Apply Inter ONLY to non-SVG content elements, not to all * (prevents
-   breaking Streamlit's SVG icons which use their own font stack) */
+/* Apply Inter to TEXT content elements ONLY.
+   We deliberately exclude generic `div`, `button`, and `span` because
+   Streamlit's expander toggle uses an icon font (via a button/div inside
+   <summary>) — overriding it with Inter causes the icon to render as raw
+   text (e.g. "arrow_right" → visible as "arr").                           */
 .stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6,
-.stApp p,.stApp li,.stApp label,.stApp span:not([class*="svg"]),
-.stApp div,.stApp button,.stApp input,.stApp textarea,.stApp select,
-.stApp [data-testid] {
+.stApp p,.stApp li,.stApp label,
+.stApp input[type="text"],.stApp input[type="number"],
+.stApp textarea,
+.stApp [data-testid="stMarkdownContainer"],
+.stApp [data-testid="stWidgetLabel"],
+.stApp [data-testid="stMetricValue"],
+.stApp [data-testid="stMetricLabel"],
+.stApp [data-testid="stCaptionContainer"],
+.stApp [data-testid="stText"],
+.stApp [data-testid="stAlertContainer"] p {
     font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
 }
 

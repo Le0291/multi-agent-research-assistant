@@ -1,9 +1,11 @@
 [phases.setup]
 nixPkgs = ["python312", "chromium", "chromium-driver"]
 
-# Store Playwright browsers inside the app directory (/app) which persists
-# across Railway's build→runtime boundary.  The default ~/.cache/ms-playwright
-# lives in the build container and is not available at runtime.
+# PLAYWRIGHT_BROWSERS_PATH must be set in BOTH the build phase (so playwright
+# install puts the binary in /app/browsers) AND the start command (so the
+# runtime process knows where to find it).  The [variables] section alone only
+# applies during the build container — it is NOT passed through to the running
+# process on Railway.
 [variables]
 PLAYWRIGHT_BROWSERS_PATH = "/app/browsers"
 
@@ -16,7 +18,7 @@ cmds = [
 ]
 
 [start]
-# --server.fileWatcherType=none stops Streamlit from importing every optional
-# transformers sub-module (some need torchvision) and removes the noisy
-# ModuleNotFoundError tracebacks from the logs.
-cmd = "streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.fileWatcherType=none"
+# Prefix with PLAYWRIGHT_BROWSERS_PATH so the runtime process finds the same
+# browser binary that was installed during the build phase.
+# --server.fileWatcherType=none suppresses noisy torchvision ModuleNotFoundError.
+cmd = "PLAYWRIGHT_BROWSERS_PATH=/app/browsers streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.fileWatcherType=none"

@@ -31,9 +31,9 @@ Given a research topic and sub-questions, rate each source snippet 1-10 for
 relevance.  Return ONLY the integer score, nothing else."""
 
 
-def _score_source(topic: str, snippet: str, cost_metrics: Any) -> float:
+def _score_source(topic: str, content: str, cost_metrics: Any) -> float:
     """
-    Score a source's relevance (1–10) to the topic.
+    Score a source's relevance (1–10) to the topic using keyword heuristics.
 
     PERFORMANCE NOTE
     ----------------
@@ -46,12 +46,18 @@ def _score_source(topic: str, snippet: str, cost_metrics: Any) -> float:
     runs instantly with no API call.  Tavily already returns results ranked by
     relevance, so this heuristic is more than sufficient for filtering, and the
     downstream Classification Agent still uses Claude for quality labelling.
+
+    IMPORTANT: This function is called ONLY when scraping actually succeeded
+    (non-empty content).  Pages that returned HTTP 403 / failed to scrape are
+    discarded before reaching this function.  We deliberately do NOT fall back
+    to scoring the Tavily snippet alone — Tavily pre-selects snippets for
+    relevance, so every snippet would score 10/10 even for blocked pages.
     """
-    # Fast local heuristic — no API call, no tokens, instant.
-    score = call_tool("score_relevance", topic=topic, text=snippet)
-    # Guarantee a minimum of 4.0 when there is real content so that legitimate
-    # sources from a trusted search provider are not over-filtered.
-    if snippet and score < 4.0:
+    score = call_tool("score_relevance", topic=topic, text=content)
+    # Apply a minimum floor only for pages with substantial scraped content.
+    # Very short content (< 200 chars) is likely navigation-only or bot-check
+    # pages — let those score naturally so they can be filtered out.
+    if len(content) > 200 and score < 4.0:
         score = 4.0
     return float(score)
 
@@ -107,17 +113,26 @@ def research_agent_node(state: ResearchState) -> dict[str, Any]:
 
             # ── ACTION: scrape full content ───────────────────────────────────
             logger.info("ReAct ACTION: scrape_page(%s)", src.url)
+            scrape_ok = False
             try:
                 full_text = call_tool("scrape_page", url=src.url)
                 if full_text:
                     src.full_content = full_text
+                    scrape_ok = True
             except Exception as exc:
                 logger.warning("Scrape failed for %s: %s", src.url, exc)
-                # Non-fatal: we keep the snippet even without full content
 
-            # ── THOUGHT: score relevance ──────────────────────────────────────
-            score_text = src.full_content or src.snippet
-            src.relevance_score = _score_source(topic, score_text, state.cost_metrics)
+            # ── THOUGHT: discard inaccessible pages (e.g. HTTP 403) ──────────
+            # Never score on the Tavily snippet alone — Tavily pre-selects
+            # snippets for topic relevance so even a fully blocked page's snippet
+            # scores 10/10.  If the real page is inaccessible, downstream agents
+            # (NER, writer, …) cannot use its content anyway.
+            if not scrape_ok:
+                logger.info("  Discarded (inaccessible / no content): %s", src.url)
+                continue
+
+            # ── THOUGHT: score relevance on actual scraped content ────────────
+            src.relevance_score = _score_source(topic, src.full_content, state.cost_metrics)
 
             # Only keep sources with relevance ≥ 4
             if src.relevance_score >= 4.0:

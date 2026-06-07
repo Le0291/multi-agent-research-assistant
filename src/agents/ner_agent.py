@@ -23,32 +23,55 @@ from src.state import EntityRecord, ResearchState
 
 logger = logging.getLogger(__name__)
 
-# SpaCy label → our higher-level category
-_LABEL_MAP = {
-    "PERSON": "person",
-    "ORG": "organization",
-    "GPE": "location",
-    "LOC": "location",
-    "DATE": "date",
-    "TIME": "date",
-    "PRODUCT": "technology",
-    "WORK_OF_ART": "concept",
-    "LAW": "concept",
-    "EVENT": "concept",
-    "NORP": "organization",
-    "FACILITY": "location",
-    "LANGUAGE": "concept",
-    "QUANTITY": "concept",
-    "CARDINAL": "concept",
-    "PERCENT": "concept",
-    "MONEY": "concept",
-    "ORDINAL": "concept",
+# SpaCy label → our higher-level category.
+# CARDINAL, ORDINAL, PERCENT, MONEY, QUANTITY, TIME are intentionally EXCLUDED —
+# they almost always produce noisy entities like "128", "first", "two", "10%",
+# "billions of dollars", "$5", which add zero research value.
+_LABEL_MAP: dict[str, str] = {
+    "PERSON":     "person",
+    "ORG":        "organization",
+    "GPE":        "location",
+    "LOC":        "location",
+    "DATE":       "date",
+    "PRODUCT":    "technology",
+    "WORK_OF_ART":"concept",
+    "LAW":        "concept",
+    "EVENT":      "concept",
+    "NORP":       "concept",       # Nationality/religion/political group → concept
+    "FACILITY":   "location",
+    "LANGUAGE":   "concept",
 }
 
-# Entities to always skip (noise words)
-_STOP_ENTITIES = {
+# Technology / AI terms that SpaCy's en_core_web_sm frequently mis-classifies
+# as ORG (because they often appear in organization-like context).
+# We remap these to "technology" to improve category quality.
+_TECH_REMAPS: set[str] = {
+    "AI", "ML", "NLP", "LLM", "LLMs", "GPT", "BERT", "CNN", "RNN", "LSTM",
+    "API", "GPU", "CPU", "CUDA", "TPU", "MoE", "MoEs", "RAG", "RL",
+    "LoRA", "RLHF", "SFT", "DPO", "Transformer", "Transformers",
+    "PyTorch", "TensorFlow", "JAX", "NumPy", "SciPy",
+    "Hugging Face", "HuggingFace", "OpenAI", "Anthropic",
+    "LangChain", "LangGraph", "ChromaDB", "SpaCy", "Streamlit",
+    "GitHub", "ChatGPT", "GPT-4", "GPT-3", "Claude", "Gemini",
+    "Llama", "Mistral", "Falcon", "Mixtral", "Tavily", "Chroma",
+}
+
+# Case-insensitive lookup set for fast tech-term checking
+_TECH_REMAPS_UPPER: set[str] = {t.upper() for t in _TECH_REMAPS}
+
+# Entities to always skip: stop words + ordinal/number words that SpaCy
+# occasionally tags as ORDINAL or DATE entities.
+_STOP_ENTITIES: set[str] = {
+    # Articles / prepositions / conjunctions
     "the", "a", "an", "of", "for", "in", "on", "at", "to", "and",
-    "or", "but", "not", "with", "by", "from", "is", "are", "was",
+    "or", "but", "not", "with", "by", "from", "is", "are", "was", "be",
+    # Ordinal / number words
+    "first", "second", "third", "fourth", "fifth", "sixth",
+    "seventh", "eighth", "ninth", "tenth", "last", "next", "recent",
+    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    # Common noise determiners / quantifiers
+    "many", "several", "few", "more", "most", "other", "some", "any",
+    "all", "each", "both", "much", "such", "same", "also", "about",
 }
 
 
@@ -73,16 +96,45 @@ def _extract_spacy(text: str, url: str, nlp) -> list[tuple[str, str, str]]:
     """
     Run SpaCy NER on text and return (surface, spacy_label, category) tuples.
 
-    Also extracts co-occurring entity pairs from the same sentence.
+    Quality filters applied in order:
+    1. Label allow-list  — only labels in _LABEL_MAP are kept (drops CARDINAL,
+       ORDINAL, PERCENT, MONEY, QUANTITY, TIME which produce pure noise).
+    2. Minimum length    — must be ≥ 2 chars.
+    3. Stop-word filter  — common noise words and ordinal number words removed.
+    4. Numeric filter    — purely numeric strings like "128" or "2024" discarded.
+    5. Tech-term remap   — known AI/ML abbreviations re-labelled as "technology"
+       even when SpaCy incorrectly classifies them as ORG.
     """
     doc = nlp(text[:5000])  # Cap input to keep processing fast
     results = []
     for ent in doc.ents:
         surface = ent.text.strip()
-        if len(surface) < 2 or surface.lower() in _STOP_ENTITIES:
+        label   = ent.label_
+
+        # ── Filter 1: only allowed SpaCy labels ──────────────────────────────
+        if label not in _LABEL_MAP:
+            continue  # silently drops CARDINAL, ORDINAL, PERCENT, MONEY …
+
+        # ── Filter 2: minimum meaningful length ──────────────────────────────
+        if len(surface) < 2:
             continue
-        category = _LABEL_MAP.get(ent.label_, "concept")
-        results.append((surface, ent.label_, category))
+
+        # ── Filter 3: stop-word / ordinal-word filter ─────────────────────────
+        if surface.lower() in _STOP_ENTITIES:
+            continue
+
+        # ── Filter 4: pure numeric strings ───────────────────────────────────
+        # Matches "128", "2,048", "3.14", "99.9%" etc.
+        if re.match(r'^\d[\d,.\s%]*$', surface):
+            continue
+
+        # ── Filter 5: tech-term category remapping ────────────────────────────
+        if surface in _TECH_REMAPS or surface.upper() in _TECH_REMAPS_UPPER:
+            category = "technology"
+        else:
+            category = _LABEL_MAP[label]
+
+        results.append((surface, label, category))
     return results
 
 

@@ -163,6 +163,67 @@ section[data-testid="stSidebar"] { background-color: #161a23 !important; }
     text-align:center; padding:12px; color:#9aa4b2;
     font-size:0.80rem; border-top:1px solid #2a2f3a; margin-top:24px;
 }
+
+/* ── Form containers ─────────────────────────────────────────────────────── */
+.stApp [data-testid="stForm"] {
+    background-color: #161a23 !important;
+    border: 1px solid #2a2f3a !important;
+    border-radius: 8px !important;
+}
+
+/* ── File upload dropzone ────────────────────────────────────────────────── */
+.stApp [data-testid="stFileUploadDropzone"] {
+    background-color: #1c2230 !important;
+    border: 2px dashed #3a4055 !important;
+    border-radius: 8px !important;
+}
+.stApp [data-testid="stFileUploadDropzone"] p,
+.stApp [data-testid="stFileUploadDropzone"] span {
+    color: #9aa4b2 !important;
+}
+.stApp [data-testid="stFileUploaderFileName"] { color: #e6e6e6 !important; }
+/* The small "X" / browse button inside the uploader */
+.stApp button[data-testid="stBaseButton-minimal"] { color: #9aa4b2 !important; }
+
+/* ── Alert / info / success / warning / error boxes ─────────────────────── */
+.stApp [data-testid="stAlertContainer"] {
+    background-color: #1c2230 !important;
+}
+.stApp [data-testid="stAlertContainer"] p,
+.stApp [data-testid="stAlertContainer"] div { color: #e6e6e6 !important; }
+
+/* ── Horizontal rule ─────────────────────────────────────────────────────── */
+.stApp hr { border-color: #2a2f3a !important; }
+
+/* ── Dropdown menu (selectbox options) ───────────────────────────────────── */
+[data-baseweb="popover"] [data-baseweb="menu"] {
+    background-color: #1c2230 !important;
+}
+[data-baseweb="popover"] [data-baseweb="menu"] li { color: #e6e6e6 !important; }
+[data-baseweb="popover"] [data-baseweb="menu"] li:hover {
+    background-color: #2a2f3a !important;
+}
+
+/* ── Spinner message ─────────────────────────────────────────────────────── */
+.stApp [data-testid="stSpinner"] p { color: #e6e6e6 !important; }
+
+/* ── Caption / small helper text ─────────────────────────────────────────── */
+.stApp small { color: #9aa4b2 !important; }
+
+/* ── Selectbox selected value text ───────────────────────────────────────── */
+.stApp .stSelectbox [data-baseweb="select"] [data-baseweb="value"] {
+    color: #e6e6e6 !important;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.stApp [data-baseweb="tab"] { color: #9aa4b2 !important; }
+.stApp [data-baseweb="tab"][aria-selected="true"] { color: #e6e6e6 !important; }
+.stApp [data-baseweb="tab-list"] { background-color: #0e1117 !important; }
+
+/* ── Progress bar background track ───────────────────────────────────────── */
+.stApp [data-testid="stProgressBar"] > div {
+    background-color: #2a2f3a !important;
+}
 """
 
 
@@ -298,49 +359,6 @@ def render_sidebar() -> str:
             for tool in list_tools():
                 st.markdown(f"- **{tool['name']}**")
 
-        # ── File Upload section ───────────────────────────────────────────────
-        st.markdown("---")
-        st.markdown("### 📁 File Upload")
-        st.caption(f"Supported: {SUPPORTED_EXTENSIONS_DISPLAY}")
-
-        uploaded_file = st.file_uploader(
-            "Upload a document",
-            type=[e.lstrip(".") for e in SUPPORTED_EXTENSIONS],
-            key="sidebar_file_upload",
-            label_visibility="collapsed",
-            help=f"Upload a file to analyse. Supported: {SUPPORTED_EXTENSIONS_DISPLAY}",
-        )
-
-        # Store extracted text in session state so all modes can access it
-        if uploaded_file is not None:
-            file_bytes = uploaded_file.read()
-            info = get_file_info(file_bytes, uploaded_file.name)
-
-            st.markdown(
-                f'<div class="file-info-card">'
-                f'📄 <b>{info["name"]}</b><br>'
-                f'Format: {info["extension"]} · Size: {info["size"]}'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-            # Extract text and store in session state
-            with st.spinner("Reading file…"):
-                extracted = extract_text(file_bytes, uploaded_file.name)
-            st.session_state["uploaded_file_text"] = extracted
-            st.session_state["uploaded_file_name"] = uploaded_file.name
-            st.success(f"✅ Extracted {len(extracted):,} characters")
-
-        elif "uploaded_file_text" in st.session_state:
-            # Show previously uploaded file info
-            st.caption(
-                f"📄 Active: {st.session_state.get('uploaded_file_name', 'file')}"
-            )
-            if st.button("🗑️ Clear file", key="clear_file"):
-                del st.session_state["uploaded_file_text"]
-                del st.session_state["uploaded_file_name"]
-                st.rerun()
-
         st.markdown("---")
         # ── Branding ─────────────────────────────────────────────────────────
         st.markdown(
@@ -350,6 +368,62 @@ def render_sidebar() -> str:
         )
 
     return selected_mode
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Shared inline file upload widget
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _render_file_upload(prefix: str) -> None:
+    """
+    Render an inline file uploader in the main content area.
+
+    Stores extracted text in st.session_state["uploaded_file_text"] so every
+    agent — Full Pipeline and all Playground modes — can read it from the same
+    place.
+
+    Args:
+        prefix: Short namespace string to avoid widget key collisions between
+                different render contexts ("fp" for Full Pipeline, "pg_ner_only"
+                for NER Playground, etc.).
+    """
+    with st.expander("📁 Include a document (optional)", expanded=False):
+        st.caption(f"Supported: {SUPPORTED_EXTENSIONS_DISPLAY} · Max 200 MB")
+
+        uploaded = st.file_uploader(
+            "Upload document",
+            type=[e.lstrip(".") for e in SUPPORTED_EXTENSIONS],
+            key=f"file_upload_{prefix}",
+            label_visibility="collapsed",
+        )
+
+        if uploaded is not None:
+            # Re-extract only when the filename changes — avoids re-parsing on
+            # every Streamlit rerun (which happens on any widget interaction).
+            if uploaded.name != st.session_state.get("uploaded_file_name"):
+                with st.spinner("Reading file…"):
+                    extracted = extract_text(uploaded.read(), uploaded.name)
+                st.session_state["uploaded_file_text"] = extracted
+                st.session_state["uploaded_file_name"] = uploaded.name
+
+            chars = len(st.session_state.get("uploaded_file_text", ""))
+            fn    = st.session_state.get("uploaded_file_name", uploaded.name)
+            st.success(f"✅ **{fn}** — {chars:,} characters extracted")
+
+        else:
+            # No file selected in this widget.  If a file was loaded in a
+            # previous mode, keep showing it with a Clear button so the user
+            # can intentionally remove it.
+            if st.session_state.get("uploaded_file_text"):
+                fn = st.session_state.get("uploaded_file_name", "file")
+                st.markdown(
+                    f'<span class="file-pill">📄 Using: {fn}</span>',
+                    unsafe_allow_html=True,
+                )
+                if st.button("🗑️ Remove file", key=f"clear_file_{prefix}"):
+                    st.session_state.pop("uploaded_file_text", None)
+                    st.session_state.pop("uploaded_file_name", None)
+                    st.rerun()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -384,20 +458,16 @@ def render_full_pipeline_ui() -> None:
         "A complete cited Markdown report is produced at the end."
     )
 
-    # ── File upload notice ────────────────────────────────────────────────────
-    if st.session_state.get("uploaded_file_text"):
-        st.markdown(
-            f'<span class="file-pill">📁 File loaded: '
-            f'{st.session_state.get("uploaded_file_name", "file")} — '
-            f'will be added as a source</span>',
-            unsafe_allow_html=True,
-        )
-
     topic = st.text_input(
         "Research Topic",
         placeholder="e.g. Transformer Architecture and Mixture of Experts",
         key="fp_topic",
     )
+
+    # ── Inline file upload (below topic) ──────────────────────────────────────
+    # Users can give a topic, upload a document, or both.
+    # The uploaded file is injected as a high-relevance source into the pipeline.
+    _render_file_upload(prefix="fp")
 
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -683,18 +753,14 @@ def render_playground_ui(mode: str) -> None:
     st.markdown(f"### {mode}")
     st.info(MODE_DESCRIPTIONS.get(mode, ""), icon="ℹ️")
 
+    # ── Inline file upload (above form) ───────────────────────────────────────
+    # Each playground agent gets its own upload widget so the user can clearly
+    # see and control what document is being processed by that specific agent.
+    _render_file_upload(prefix=f"pg_{mode.replace(' ', '_').lower()}")
+
     # ── Build mode-specific input form ────────────────────────────────────────
     inputs: dict[str, Any] = {}
     accepted_inputs = MODE_INPUTS.get(mode, [])
-
-    # Show file upload notice if a file is already loaded
-    if st.session_state.get("uploaded_file_text"):
-        fn = st.session_state.get("uploaded_file_name", "file")
-        st.markdown(
-            f'<span class="file-pill">📁 File active: {fn} — '
-            f'will be used as input text</span>',
-            unsafe_allow_html=True,
-        )
 
     with st.form(key=f"form_{mode.replace(' ', '_')}"):
 

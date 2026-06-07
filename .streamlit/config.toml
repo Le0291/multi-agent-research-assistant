@@ -17,5 +17,11 @@ enableXsrfProtection = false
 gatherUsageStats = false
 
 [theme]
-base = "light"
-primaryColor = "#3498db"
+# Dark base forces Streamlit's emotion-cache to generate
+# var(--background-color) = #101418 instead of #ffffff.
+# This is the root fix for the white expander content area.
+base                  = "dark"
+backgroundColor       = "#101418"
+secondaryBackgroundColor = "#1c2024"
+textColor             = "#e0e3e8"
+primaryColor          = "#92ccff"

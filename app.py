@@ -136,28 +136,52 @@ section[data-testid="stSidebar"] { background-color: #161a23 !important; }
     border:1px solid #2a2f3a !important;
 }
 
-/* Expanders — outer container, header, AND the opened content panel */
+/* ── Expanders ───────────────────────────────────────────────────────────── */
 .stApp [data-testid="stExpander"] {
     background-color:#161a23 !important; border:1px solid #2a2f3a !important;
 }
 .stApp [data-testid="stExpander"] summary { color:#e6e6e6 !important; }
-/* The white content box that appears when the expander is open */
-.stApp [data-testid="stExpander"] details > div,
-.stApp [data-testid="stExpander"] details[open] > div,
-.stApp [data-testid="stExpanderDetails"] {
-    background-color:#161a23 !important;
-}
-/* All text children inside the open expander (but NOT our coloured badge pills) */
-.stApp [data-testid="stExpanderDetails"] p,
-.stApp [data-testid="stExpanderDetails"] label,
-.stApp [data-testid="stExpanderDetails"] small,
-.stApp details > div p,
-.stApp details > div label,
-.stApp details > div small {
-    color: #e6e6e6 !important;
-}
-/* Expander toggle arrow */
 .stApp [data-testid="stExpander"] summary svg { fill:#e6e6e6 !important; }
+
+/* Force EVERY element inside an open expander to have a dark background.
+   This is the "nuclear" fix — Streamlit injects white backgrounds via
+   deeply-nested divs that regular descendant selectors cannot beat.
+   We then explicitly restore colours for pills/buttons below. */
+.stApp details[open] > div,
+.stApp details[open] > div *:not(button):not(.mode-full):not(.mode-playground):not(.file-pill):not(.score-high):not(.score-low) {
+    background-color: #161a23 !important;
+    color: #e6e6e6 !important;
+    border-color: #2a2f3a !important;
+}
+
+/* Restore pill / badge colours (they were overridden by the rule above) */
+.stApp details[open] .mode-full       { background:#d4edda !important; color:#155724 !important; }
+.stApp details[open] .mode-playground { background:#cce5ff !important; color:#004085 !important; }
+.stApp details[open] .file-pill       { background:#fff3cd !important; color:#856404 !important; }
+.stApp details[open] .score-high      { color:#27ae60 !important; }
+.stApp details[open] .score-low       { color:#e74c3c !important; }
+
+/* Restore file-uploader dropzone dashed border */
+.stApp details[open] [data-testid="stFileUploadDropzone"] {
+    background-color: #1c2230 !important;
+    border: 2px dashed #3a4055 !important;
+}
+
+/* Restore primary (blue) buttons inside expanders */
+.stApp details[open] button[kind="primary"],
+.stApp details[open] .stButton > button[data-testid="stBaseButton-primary"] {
+    background-color: #3498db !important;
+    color: #ffffff !important;
+    border-color: #3498db !important;
+}
+
+/* Restore secondary buttons */
+.stApp details[open] button[kind="secondary"],
+.stApp details[open] .stButton > button[data-testid="stBaseButton-secondary"] {
+    background-color: #1c2230 !important;
+    color: #e6e6e6 !important;
+    border-color: #3a4055 !important;
+}
 
 /* Dataframes / tables */
 .stApp [data-testid="stTable"], .stApp [data-testid="stDataFrame"] {

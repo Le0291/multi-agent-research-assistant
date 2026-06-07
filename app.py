@@ -55,16 +55,22 @@ st.set_page_config(
 _SHARED_CSS = """
 /* ── Inter font (Stitch design system) ──────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
 
-.stApp, .stApp * { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+/* Apply Inter ONLY to non-SVG content elements, not to all * (prevents
+   breaking Streamlit's SVG icons which use their own font stack) */
+.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6,
+.stApp p,.stApp li,.stApp label,.stApp span:not([class*="svg"]),
+.stApp div,.stApp button,.stApp input,.stApp textarea,.stApp select,
+.stApp [data-testid] {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+}
 
-/* Thin scrollbar — matches Stitch dark theme */
+/* Thin scrollbar */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #3f4850; border-radius: 10px; }
 
-/* Progress bar — Stitch primary (#3498db) */
+/* Progress bar */
 .stProgress .st-bo { background-color: #3498db; }
 
 /* ── Mode badge pills ────────────────────────────────────────────────────── */
@@ -97,32 +103,39 @@ _SHARED_CSS = """
 .bento-card {
     border-radius:12px; padding:14px 12px; text-align:center;
     border:1px solid rgba(63,72,80,0.8);
-    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
 }
-.bento-card .bc-value {
-    font-size:1.6rem; font-weight:700; line-height:1.2;
-    font-family:'Inter',sans-serif;
-}
+.bento-card .bc-value { font-size:1.6rem; font-weight:700; line-height:1.2; }
 .bento-card .bc-label {
     font-size:0.70rem; font-weight:500; letter-spacing:0.05em;
     text-transform:uppercase; margin-top:4px; opacity:0.75;
 }
 
-/* ── Glass card (general purpose) ──────────────────────────────────────── */
-.glass-card {
-    border-radius:12px; padding:16px;
-    border:1px solid rgba(255,255,255,0.06);
-    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-}
+/* ── Glass card ─────────────────────────────────────────────────────────── */
+.glass-card { border-radius:12px; padding:16px; border:1px solid rgba(255,255,255,0.06); }
 
-/* ── Nav item (sidebar) ─────────────────────────────────────────────────── */
-.nav-item {
-    display:flex; align-items:center; gap:10px; padding:8px 12px;
-    border-radius:8px; font-size:0.88rem; font-weight:500;
-    margin-bottom:2px; cursor:pointer; transition:background 0.15s;
+/* ── Sidebar nav buttons → Stitch nav-item style ─────────────────────────
+   We use st.button() for each nav mode.  These CSS rules transform the
+   default Streamlit button appearance into a flat, icon-row nav item.      */
+section[data-testid="stSidebar"] .stButton { margin-bottom:1px !important; }
+section[data-testid="stSidebar"] .stButton > button {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-radius: 8px !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding: 8px 12px !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    transition: background 0.15s !important;
 }
-.nav-item.active {
-    border-right:2px solid #92ccff; /* Stitch active indicator */
+/* Active nav button (type="primary") */
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"],
+section[data-testid="stSidebar"] .stButton button[kind="primary"] {
+    border-right: 3px solid currentColor !important;
+    box-shadow: none !important;
+    font-weight: 600 !important;
 }
 """
 
@@ -139,10 +152,16 @@ section[data-testid="stSidebar"] {
     border-right:1px solid #e2e8f0 !important;
 }
 
-/* Active nav in light mode */
-.nav-item.active { color:#006397; background:#e8f4ff; border-right:2px solid #006397; }
-.nav-item { color:#475569; }
-.nav-item:hover { background:#e2eaf4; }
+/* Sidebar nav buttons — light mode */
+section[data-testid="stSidebar"] .stButton > button { color: #475569 !important; }
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: #e2eaf4 !important; color: #1e3a5f !important;
+}
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"],
+section[data-testid="stSidebar"] .stButton button[kind="primary"] {
+    background: #e8f4ff !important; color: #006397 !important;
+    border-right-color: #006397 !important;
+}
 
 .metric-card {
     background:#ffffff; border-radius:12px; padding:14px;
@@ -204,10 +223,17 @@ section[data-testid="stSidebar"] {
     border-right:1px solid #3f4850 !important;
 }
 
-/* Nav item colours for dark mode */
-.nav-item { color: #bfc7d2; }
-.nav-item.active { color:#92ccff; background:#262a2f; border-right:2px solid #92ccff; }
-.nav-item:hover { background:#1c2024; }
+/* Sidebar nav buttons — dark mode */
+section[data-testid="stSidebar"] .stButton > button { color: #bfc7d2 !important; }
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: #1c2024 !important; color: #e0e3e8 !important;
+}
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"],
+section[data-testid="stSidebar"] .stButton button[kind="primary"] {
+    background: #262a2f !important; color: #92ccff !important;
+    border-right-color: #92ccff !important;
+    box-shadow: 0 0 10px rgba(146,204,255,0.08) !important;
+}
 
 /* Body text */
 .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
@@ -323,25 +349,45 @@ section[data-testid="stSidebar"] {
     border-radius: 12px !important;
 }
 
-/* ── File upload widget ──────────────────────────────────────────────── */
-.stApp [data-testid="stFileUploader"] {
-    background-color: #1c2024 !important; border-radius: 12px !important;
-}
+/* ── File upload widget — global (outside expanders) ─────────────────── */
+.stApp [data-testid="stFileUploader"],
 .stApp [data-testid="stFileUploader"] > div,
-.stApp [data-testid="stFileUploader"] > div > div {
+.stApp [data-testid="stFileUploader"] > div > div,
+.stApp [data-testid="stFileUploader"] > div > div > div {
     background-color: #1c2024 !important; border-radius: 12px !important;
 }
 .stApp [data-testid="stFileUploadDropzone"],
 .stApp [data-testid="stFileUploaderDropzone"],
-.stApp section[data-testid="stFileUploadDropzone"] {
+.stApp section[data-testid="stFileUploadDropzone"],
+.stApp [class*="uploadInstructions"],
+.stApp [class*="fileUpload"] {
     background-color: #1c2024 !important;
     border: 2px dashed #3f4850 !important;
     border-radius: 12px !important;
 }
 .stApp [data-testid="stFileUploadDropzone"] *,
-.stApp [data-testid="stFileUploaderDropzone"] * { color: #bfc7d2 !important; }
+.stApp [data-testid="stFileUploaderDropzone"] *,
+.stApp [class*="uploadInstructions"] * { color: #bfc7d2 !important; }
 .stApp [data-testid="stFileUploaderFileName"] { color: #e0e3e8 !important; }
 .stApp button[data-testid="stBaseButton-minimal"] { color: #bfc7d2 !important; }
+
+/* ── File upload widget INSIDE open expanders (nuclear fix) ──────────── */
+.stApp details[open] [data-testid="stFileUploader"],
+.stApp details[open] [data-testid="stFileUploader"] *,
+.stApp details[open] section[data-testid="stFileUploadDropzone"],
+.stApp details[open] section[data-testid="stFileUploadDropzone"] *,
+.stApp details[open] [data-testid="stFileUploadDropzone"],
+.stApp details[open] [data-testid="stFileUploadDropzone"] *,
+.stApp details[open] [class*="uploadInstructions"],
+.stApp details[open] [class*="uploadInstructions"] * {
+    background-color: #1c2024 !important;
+    color: #bfc7d2 !important;
+}
+.stApp details[open] [data-testid="stFileUploadDropzone"],
+.stApp details[open] section[data-testid="stFileUploadDropzone"] {
+    border: 2px dashed #3f4850 !important;
+    border-radius: 12px !important;
+}
 
 /* ── Alert boxes ────────────────────────────────────────────────────── */
 .stApp [data-testid="stAlertContainer"] { background-color: #1c2024 !important; }
@@ -456,45 +502,44 @@ def render_sidebar() -> str:
     """
     Render the sidebar (Stitch design) and return the selected mode string.
 
-    Uses Material Symbols icons and the Stitch nav-item style with active-state
-    left border indicator.  Falls back gracefully if the CDN is unavailable.
+    Each navigation item is a real st.button — clicking it sets the mode.
+    Active mode uses type="primary" which the CSS transforms into the
+    Stitch active-indicator style (tinted bg + right border in primary color).
     """
-    # Icon map for each mode
-    _MODE_ICONS: dict[str, str] = {
-        "Full Pipeline":       "hub",
-        "Research Only":       "search",
-        "Classification Only": "category",
-        "NER Only":            "label",
-        "Browser Only":        "language",
-        "Analysis Only":       "analytics",
-        "Writer Only":         "edit_note",
-        "Critic Only":         "rate_review",
-        "Illustration Only":   "image",
+    # Emoji icon per mode (always render correctly, no font loading needed)
+    _MODE_EMOJI: dict[str, str] = {
+        "Full Pipeline":       "⬡",
+        "Research Only":       "🔍",
+        "Classification Only": "📂",
+        "NER Only":            "🏷️",
+        "Browser Only":        "🌐",
+        "Analysis Only":       "📊",
+        "Writer Only":         "✍️",
+        "Critic Only":         "⭐",
+        "Illustration Only":   "🎨",
     }
 
+    # Persist the selected mode in session_state so it survives reruns
+    if "nav_mode" not in st.session_state:
+        st.session_state["nav_mode"] = "Full Pipeline"
+
     with st.sidebar:
-        # ── Brand header ─────────────────────────────────────────────────────
+        # ── Brand header ──────────────────────────────────────────────────────
+        _is_dark = st.session_state.get("app_theme", "Dark") == "Dark"
+        _p_col   = "#92ccff" if _is_dark else "#006397"
+        _m_col   = "#bfc7d2" if _is_dark else "#64748b"
         st.markdown(
-            """
-            <div style="padding:20px 4px 16px 4px;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <span class="material-symbols-outlined"
-                          style="font-size:28px;color:#92ccff;">
-                        neurology
-                    </span>
-                    <div>
-                        <div style="font-size:1rem;font-weight:700;
-                                    letter-spacing:-0.01em;color:#92ccff;">
-                            Research Assistant
-                        </div>
-                        <div style="font-size:0.70rem;color:#bfc7d2;
-                                    letter-spacing:0.04em;text-transform:uppercase;">
-                            Powered by L2 Team
-                        </div>
-                    </div>
+            f"""<div style="padding:20px 4px 12px 4px;">
+                <div style="font-size:1.05rem;font-weight:700;
+                            letter-spacing:-0.01em;color:{_p_col};">
+                    🔬 Research Assistant
                 </div>
-            </div>
-            """,
+                <div style="font-size:0.70rem;color:{_m_col};
+                            letter-spacing:0.05em;text-transform:uppercase;
+                            margin-top:3px;">
+                    Powered by L2 Team
+                </div>
+            </div>""",
             unsafe_allow_html=True,
         )
 
@@ -504,7 +549,6 @@ def render_sidebar() -> str:
             options=["Light", "Dark"],
             key="app_theme",
             horizontal=True,
-            help="Switch between light and dark appearance.",
         )
         st.divider()
 
@@ -512,42 +556,37 @@ def render_sidebar() -> str:
         for w in check_api_keys():
             st.warning(w, icon="⚠️")
 
-        # ── Mode selector ─────────────────────────────────────────────────────
+        # ── Nav buttons ───────────────────────────────────────────────────────
+        # Each button is a real Streamlit widget.  Clicking sets nav_mode and
+        # triggers a rerun so the main area updates immediately.
+        _lbl_col = "#89929b" if _is_dark else "#94a3b8"
         st.markdown(
-            "<div style='font-size:0.70rem;font-weight:600;letter-spacing:0.08em;"
-            "text-transform:uppercase;color:#89929b;padding:0 4px 8px 4px;'>"
-            "Navigation</div>",
+            f"<div style='font-size:0.68rem;font-weight:600;letter-spacing:0.08em;"
+            f"text-transform:uppercase;color:{_lbl_col};padding:0 4px 6px 4px;'>"
+            f"Navigation</div>",
             unsafe_allow_html=True,
         )
 
-        selected_mode = st.selectbox(
-            "Choose an agent",
-            ALL_MODES,
-            index=0,
-            key="mode_selector",
-            label_visibility="collapsed",
-        )
-
-        # Render nav items as Stitch-styled rows
         for mode in ALL_MODES:
-            is_active = mode == selected_mode
-            icon = _MODE_ICONS.get(mode, "chevron_right")
-            active_cls  = "active" if is_active else ""
-            section_lbl = "Full Pipeline" if mode == "Full Pipeline" else mode
-            st.markdown(
-                f"""<div class="nav-item {active_cls}">
-                    <span class="material-symbols-outlined"
-                          style="font-size:18px;flex-shrink:0;">{icon}</span>
-                    <span style="font-size:0.875rem;">{section_lbl}</span>
-                </div>""",
-                unsafe_allow_html=True,
-            )
+            is_active = st.session_state["nav_mode"] == mode
+            emoji     = _MODE_EMOJI.get(mode, "▸")
+            btn_label = f"{emoji}  {mode}"
+            if st.button(
+                btn_label,
+                key=f"nav_btn_{mode.replace(' ', '_')}",
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+            ):
+                st.session_state["nav_mode"] = mode
+                st.rerun()
+
+        selected_mode = st.session_state["nav_mode"]
 
         # ── Mode badge + description ──────────────────────────────────────────
         st.divider()
         if selected_mode == "Full Pipeline":
             st.markdown(
-                '<span class="mode-pill mode-full">📋 Competition Requirement</span>',
+                '<span class="mode-pill mode-full">📋 Competition Mode</span>',
                 unsafe_allow_html=True,
             )
         else:
@@ -560,9 +599,9 @@ def render_sidebar() -> str:
         # ── System config ─────────────────────────────────────────────────────
         st.divider()
         st.markdown(
-            "<div style='font-size:0.70rem;font-weight:600;letter-spacing:0.08em;"
-            "text-transform:uppercase;color:#89929b;padding:0 4px 8px 4px;'>"
-            "Configuration</div>",
+            f"<div style='font-size:0.68rem;font-weight:600;letter-spacing:0.08em;"
+            f"text-transform:uppercase;color:{_lbl_col};padding:0 4px 6px 4px;'>"
+            f"Configuration</div>",
             unsafe_allow_html=True,
         )
         st.markdown(
@@ -1251,11 +1290,11 @@ def _render_ner_result(result: dict) -> None:
     }
     _CAT_STYLE = _CAT_STYLE_DARK if _is_dark else _CAT_STYLE_LIGHT
 
-    # Icon per category (Material Symbols)
+    # Emoji icon per category (always render without font loading)
     _CAT_ICON: dict[str, str] = {
-        "person": "person", "organization": "corporate_fare",
-        "location": "location_on", "technology": "memory",
-        "concept": "lightbulb", "date": "calendar_today",
+        "person": "👤", "organization": "🏢",
+        "location": "📍", "technology": "💡",
+        "concept": "🧠", "date": "📅",
     }
 
     # ── Bento-grid metric summary ─────────────────────────────────────────────
@@ -1267,8 +1306,10 @@ def _render_ner_result(result: dict) -> None:
         bg, fg, border = _CAT_STYLE.get(cat, ("#1c2024", "#e0e3e8", "#3f4850"))
         icon = _CAT_ICON.get(cat, "label")
         pct  = int(cnt / total * 100) if total else 0
+        icon = _CAT_ICON.get(cat, "🔹")
         cards_html += (
             f'<div class="bento-card" style="background:{bg};border-color:{border};">'
+            f'  <div style="font-size:1.1rem;margin-bottom:4px;">{icon}</div>'
             f'  <div class="bc-value" style="color:{fg};">{cnt}</div>'
             f'  <div class="bc-label" style="color:{fg};opacity:0.75;">'
             f'    {cat.title()}'
@@ -1302,8 +1343,7 @@ def _render_ner_result(result: dict) -> None:
         st.markdown(
             f"<div style='display:flex;align-items:center;gap:6px;"
             f"margin:10px 0 4px 0;'>"
-            f"<span class='material-symbols-outlined' "
-            f"style='font-size:16px;color:{fg};'>{icon}</span>"
+            f"<span style='font-size:15px;'>{icon}</span>"
             f"<b style='font-size:0.92rem;color:{fg};'>{cat.title()}</b>"
             f"<span style='font-size:0.75rem;opacity:0.55;margin-left:4px;'>"
             f"({len(ents)} entities)</span></div>",
@@ -1532,16 +1572,6 @@ from typing import Any  # noqa: E402 (after functions that use it)
 def main() -> None:
     """Render the app: sidebar → mode → appropriate UI."""
 
-    # ── Inject Material Symbols CDN (needed for sidebar + NER icons) ──────────
-    st.markdown(
-        '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?'
-        'family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">'
-        '<style>.material-symbols-outlined{font-variation-settings:'
-        "'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;"
-        "display:inline-block;vertical-align:middle;line-height:1;}</style>",
-        unsafe_allow_html=True,
-    )
-
     # ── Stitch-styled header ──────────────────────────────────────────────────
     _is_dark = st.session_state.get("app_theme", "Dark") == "Dark"
     _primary  = "#92ccff" if _is_dark else "#006397"
@@ -1564,12 +1594,13 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    # ── Sidebar (returns selected mode) ───────────────────────────────────────
+    # ── Sidebar (renders nav buttons, returns selected mode) ──────────────────
     selected_mode = render_sidebar()
 
     st.divider()
 
     # ── Route to the correct UI ───────────────────────────────────────────────
+    # selected_mode comes from st.session_state["nav_mode"] via render_sidebar()
     if selected_mode == "Full Pipeline":
         render_full_pipeline_ui()
     else:

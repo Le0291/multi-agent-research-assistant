@@ -136,11 +136,28 @@ section[data-testid="stSidebar"] { background-color: #161a23 !important; }
     border:1px solid #2a2f3a !important;
 }
 
-/* Expanders */
+/* Expanders — outer container, header, AND the opened content panel */
 .stApp [data-testid="stExpander"] {
     background-color:#161a23 !important; border:1px solid #2a2f3a !important;
 }
 .stApp [data-testid="stExpander"] summary { color:#e6e6e6 !important; }
+/* The white content box that appears when the expander is open */
+.stApp [data-testid="stExpander"] details > div,
+.stApp [data-testid="stExpander"] details[open] > div,
+.stApp [data-testid="stExpanderDetails"] {
+    background-color:#161a23 !important;
+}
+/* All text children inside the open expander (but NOT our coloured badge pills) */
+.stApp [data-testid="stExpanderDetails"] p,
+.stApp [data-testid="stExpanderDetails"] label,
+.stApp [data-testid="stExpanderDetails"] small,
+.stApp details > div p,
+.stApp details > div label,
+.stApp details > div small {
+    color: #e6e6e6 !important;
+}
+/* Expander toggle arrow */
+.stApp [data-testid="stExpander"] summary svg { fill:#e6e6e6 !important; }
 
 /* Dataframes / tables */
 .stApp [data-testid="stTable"], .stApp [data-testid="stDataFrame"] {
@@ -256,8 +273,12 @@ def _inject_theme_css(theme: str) -> None:
     st.markdown(f"<style>{_SHARED_CSS}\n{palette}</style>", unsafe_allow_html=True)
 
 
-# Read the persisted theme (defaults to Light on first load) and apply it.
-_active_theme = st.session_state.get("app_theme", "Light")
+# Read the persisted theme.  We default to "Dark" so that if the session is
+# reset by a crash or page reload, the app comes back in dark mode rather than
+# suddenly flashing white — which confused users who keep dark mode selected.
+if "app_theme" not in st.session_state:
+    st.session_state["app_theme"] = "Dark"
+_active_theme = st.session_state["app_theme"]
 _inject_theme_css(_active_theme)
 
 
@@ -1030,37 +1051,97 @@ def _render_ner_result(result: dict) -> None:
 
     st.success(f"✅ Extracted **{len(entities)}** unique entities")
 
-    if entities:
-        # Category breakdown
-        cat_counts = Counter(e.category for e in entities)
-        cols = st.columns(len(cat_counts) or 1)
-        for col, (cat, cnt) in zip(cols, cat_counts.items()):
-            col.metric(label=cat.title(), value=cnt)
+    if not entities:
+        st.info("No named entities found in the provided text.")
+        return
 
-        # Full entity table
-        st.markdown("#### Entity Frequency Table")
+    # ── Category colours (light bg / dark text — readable in both themes) ─────
+    _CAT_STYLE: dict[str, tuple[str, str]] = {
+        "person":       ("#fde8e8", "#7b1c1c"),
+        "organization": ("#e8eeff", "#1c357a"),
+        "location":     ("#e8f7e8", "#1a5c1a"),
+        "technology":   ("#fff5e0", "#7a4d00"),
+        "concept":      ("#f5e8ff", "#4c1a7a"),
+        "date":         ("#e0faf4", "#0e5c44"),
+    }
+
+    # ── Summary metrics ────────────────────────────────────────────────────────
+    cat_counts = Counter(e.category for e in entities)
+    cols = st.columns(len(cat_counts) or 1)
+    for col, (cat, cnt) in zip(cols, cat_counts.most_common()):
+        col.metric(label=cat.title(), value=cnt)
+
+    # ── Grouped display by category (the key view) ────────────────────────────
+    st.markdown("#### 🏷️ Entities by Category")
+    st.caption(
+        "Each tag shows the extracted word and how many times it appeared (×N). "
+        "Grouped by entity type so you can see exactly which words were identified as what."
+    )
+
+    cat_groups: dict = {}
+    for e in entities:
+        cat_groups.setdefault(e.category, []).append(e)
+
+    for cat in sorted(cat_groups.keys()):
+        ents = sorted(cat_groups[cat], key=lambda x: x.count, reverse=True)
+        bg, fg = _CAT_STYLE.get(cat, ("#e8e8e8", "#333333"))
+
+        st.markdown(
+            f"<div style='margin:8px 0 4px 0;'>"
+            f"<b style='font-size:0.95rem;'>{cat.title()}</b>"
+            f"<span style='color:#888; font-size:0.8rem; margin-left:6px;'>"
+            f"({len(ents)} entities)</span></div>",
+            unsafe_allow_html=True,
+        )
+        tags_html = "".join(
+            f'<span style="background:{bg}; color:{fg}; border:1px solid {fg}30; '
+            f'padding:4px 11px; border-radius:14px; font-size:0.84rem; '
+            f'margin:3px 2px; display:inline-block; white-space:nowrap;">'
+            f'{e.text}'
+            f'<span style="opacity:0.55; font-size:0.72rem; margin-left:4px;">×{e.count}</span>'
+            f'</span>'
+            for e in ents[:25]
+        )
+        st.markdown(
+            f'<div style="margin-bottom:12px; line-height:2.2;">{tags_html}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Full table (collapsed) ────────────────────────────────────────────────
+    with st.expander("📋 Full entity table (all entities, sortable)"):
         st.dataframe({
-            "Entity":   [e.text for e in entities[:50]],
-            "Category": [e.category for e in entities[:50]],
-            "SpaCy Label": [e.label for e in entities[:50]],
-            "Count":    [e.count for e in entities[:50]],
+            "Entity":      [e.text     for e in entities[:80]],
+            "Category":    [e.category for e in entities[:80]],
+            "SpaCy Label": [e.label    for e in entities[:80]],
+            "Count":       [e.count    for e in entities[:80]],
         }, use_container_width=True)
 
-        # Tag cloud style display
-        st.markdown("#### Entity Tags")
-        tag_html = " ".join(
-            f'<span class="entity-tag">{e.text} ({e.count})</span>'
-            for e in entities[:40]
-        )
-        st.markdown(tag_html, unsafe_allow_html=True)
-
+    # ── Co-occurrence relationships ────────────────────────────────────────────
     if rels:
-        st.markdown(f"#### Co-occurrence Relationships ({len(rels)} pairs)")
-        with st.expander("View relationship pairs"):
+        with st.expander(f"🔗 Co-occurrence relationships ({len(rels)} pairs)"):
+            st.caption(
+                "Entities that appeared in the same sentence — "
+                "a proxy for semantic relationships in the text."
+            )
             for a, b in rels[:30]:
-                st.markdown(f"- **{a}** ↔ **{b}**")
+                bg_a, fg_a = _CAT_STYLE.get(
+                    next((e.category for e in entities if e.text == a), "concept"),
+                    ("#e8e8e8", "#333"),
+                )
+                bg_b, fg_b = _CAT_STYLE.get(
+                    next((e.category for e in entities if e.text == b), "concept"),
+                    ("#e8e8e8", "#333"),
+                )
+                st.markdown(
+                    f'<span style="background:{bg_a};color:{fg_a};padding:2px 8px;'
+                    f'border-radius:10px;font-size:0.83rem;">{a}</span>'
+                    f' &nbsp;↔&nbsp; '
+                    f'<span style="background:{bg_b};color:{fg_b};padding:2px 8px;'
+                    f'border-radius:10px;font-size:0.83rem;">{b}</span>',
+                    unsafe_allow_html=True,
+                )
 
-    # Download
+    # ── Download ───────────────────────────────────────────────────────────────
     import io, csv  # noqa: PLC0415
     buf = io.StringIO()
     w = csv.writer(buf)

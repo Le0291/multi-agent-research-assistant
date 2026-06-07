@@ -81,6 +81,18 @@ def research_agent_node(state: ResearchState) -> dict[str, Any]:
     collected: list[SourceRecord] = []
     seen_urls: set[str] = set()
 
+    # ── Preserve uploaded-file sources ────────────────────────────────────────
+    # The Full Pipeline injects any user-uploaded document as a SourceRecord
+    # with url="file://..." before the graph starts.  Without this guard the
+    # research agent would overwrite raw_sources and silently drop the file.
+    file_sources = [s for s in state.raw_sources if s.url.startswith("file://")]
+    for fs in file_sources:
+        seen_urls.add(fs.url)   # prevent the loop from re-processing file URLs
+    if file_sources:
+        logger.info(
+            "Research Agent: preserving %d uploaded-file source(s).", len(file_sources)
+        )
+
     logger.info("Research Agent: starting ReAct loop for '%s'", topic)
 
     # ── THOUGHT: build search queries ─────────────────────────────────────────
@@ -156,11 +168,15 @@ def research_agent_node(state: ResearchState) -> dict[str, Any]:
             f"(minimum target: {config.min_sources})"
         )
 
-    # Sort by relevance descending
-    collected.sort(key=lambda s: s.relevance_score, reverse=True)
+    # Merge uploaded-file sources back in (at the front — scored 9.0 by default)
+    all_sources = file_sources + collected
+    all_sources.sort(key=lambda s: s.relevance_score, reverse=True)
 
-    logger.info("Research Agent: collected %d sources.", len(collected))
+    logger.info(
+        "Research Agent: collected %d web sources + %d file source(s) = %d total.",
+        len(collected), len(file_sources), len(all_sources),
+    )
     return {
-        "raw_sources": collected,
+        "raw_sources": all_sources,
         "status": "classifying",
     }

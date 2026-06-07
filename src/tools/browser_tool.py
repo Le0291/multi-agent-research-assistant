@@ -13,12 +13,30 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shutil
 from pathlib import Path
 from typing import Any
 
 from src.config import config
 
 logger = logging.getLogger(__name__)
+
+# ── System chromium detection ─────────────────────────────────────────────────
+# On Railway (and other containerised environments) Playwright's own binary may
+# not be available if the build cache is cleared between phases.  We prefer the
+# system-installed chromium from nixpkgs (added to PATH by the nix setup phase)
+# and fall back to whatever Playwright downloaded, if anything.
+_SYSTEM_CHROME: str | None = (
+    shutil.which("chromium-browser")
+    or shutil.which("chromium")
+    or shutil.which("google-chrome-stable")
+    or shutil.which("google-chrome")
+    or None
+)
+if _SYSTEM_CHROME:
+    logger.info("Browser tool: using system chromium at %s", _SYSTEM_CHROME)
+else:
+    logger.info("Browser tool: no system chromium found — will use Playwright's bundled binary.")
 
 TOOL_SPEC = {
     "name": "browser_navigate",
@@ -59,7 +77,30 @@ async def _navigate_async(url: str, take_screenshot: bool = True) -> dict[str, A
     result: dict[str, Any] = {"url": url, "screenshot_path": None}
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        # Build launch kwargs — must include sandbox-disabling flags for
+        # containerised environments (Docker / Railway / Render / etc.).
+        launch_kwargs: dict[str, Any] = {
+            "headless": True,
+            "args": [
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-setuid-sandbox",
+            ],
+        }
+        if _SYSTEM_CHROME:
+            launch_kwargs["executable_path"] = _SYSTEM_CHROME
+
+        try:
+            browser = await p.chromium.launch(**launch_kwargs)
+        except Exception as launch_exc:
+            logger.warning(
+                "Chromium launch failed (%s).  "
+                "Browser agent will be skipped for this URL.", launch_exc,
+            )
+            result["error"] = f"Browser unavailable: {launch_exc}"
+            return result
+
         page = await browser.new_page()
 
         try:

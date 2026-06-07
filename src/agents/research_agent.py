@@ -117,7 +117,10 @@ def research_agent_node(state: ResearchState) -> dict[str, Any]:
             try:
                 full_text = call_tool("scrape_page", url=src.url)
                 if full_text:
-                    src.full_content = full_text
+                    # Cap content to 8 000 chars — NER/analysis only uses the
+                    # first 5 000 anyway, and smaller payloads cut session-state
+                    # memory roughly 4× on Railway (prevents OOM crash on 2nd run).
+                    src.full_content = full_text[:8_000]
                     scrape_ok = True
             except Exception as exc:
                 logger.warning("Scrape failed for %s: %s", src.url, exc)

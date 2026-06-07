@@ -1,12 +1,18 @@
 [phases.setup]
 nixPkgs = ["python312", "chromium", "chromium-driver"]
 
+# Store Playwright browsers inside the app directory (/app) which persists
+# across Railway's build→runtime boundary.  The default ~/.cache/ms-playwright
+# lives in the build container and is not available at runtime.
+[variables]
+PLAYWRIGHT_BROWSERS_PATH = "/app/browsers"
+
 [phases.install]
 cmds = [
   "pip install --upgrade pip",
   "pip install -r requirements.txt",
   "python -m spacy download en_core_web_sm",
-  "playwright install chromium"
+  "playwright install --with-deps chromium"
 ]
 
 [start]

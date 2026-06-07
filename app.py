@@ -171,18 +171,34 @@ section[data-testid="stSidebar"] { background-color: #161a23 !important; }
     border-radius: 8px !important;
 }
 
-/* ── File upload dropzone ────────────────────────────────────────────────── */
-.stApp [data-testid="stFileUploadDropzone"] {
+/* ── File upload — full widget stack ─────────────────────────────────────── */
+/* Outer wrapper */
+.stApp [data-testid="stFileUploader"] {
+    background-color: #1c2230 !important;
+    border-radius: 8px !important;
+}
+/* Every child div inside the uploader (catches the white inner box) */
+.stApp [data-testid="stFileUploader"] > div,
+.stApp [data-testid="stFileUploader"] > div > div {
+    background-color: #1c2230 !important;
+    border-radius: 8px !important;
+}
+/* The drag-and-drop dropzone (two possible testids across Streamlit versions) */
+.stApp [data-testid="stFileUploadDropzone"],
+.stApp [data-testid="stFileUploaderDropzone"],
+.stApp section[data-testid="stFileUploadDropzone"] {
     background-color: #1c2230 !important;
     border: 2px dashed #3a4055 !important;
     border-radius: 8px !important;
 }
-.stApp [data-testid="stFileUploadDropzone"] p,
-.stApp [data-testid="stFileUploadDropzone"] span {
+/* All text inside the dropzone */
+.stApp [data-testid="stFileUploadDropzone"] *,
+.stApp [data-testid="stFileUploaderDropzone"] * {
     color: #9aa4b2 !important;
 }
+/* Uploaded filename label */
 .stApp [data-testid="stFileUploaderFileName"] { color: #e6e6e6 !important; }
-/* The small "X" / browse button inside the uploader */
+/* The small "×" / browse button inside the uploader */
 .stApp button[data-testid="stBaseButton-minimal"] { color: #9aa4b2 !important; }
 
 /* ── Alert / info / success / warning / error boxes ─────────────────────── */
@@ -261,6 +277,23 @@ from src.graph import (
     build_graph, _dict_to_state, _state_to_full_dict, get_graph_config,
 )
 from src.state import ResearchState
+
+
+@st.cache_resource(show_spinner=False)
+def _get_pipeline_graph():
+    """
+    Build the LangGraph StateGraph ONCE and cache it across all reruns.
+
+    Why this matters:
+    - build_graph() constructs + compiles a StateGraph which is CPU-intensive.
+    - Without caching, it runs on EVERY button click.
+    - The compiled graph is fully stateless (state is passed in at run time),
+      so sharing it across runs is safe.
+    - Caching also prevents the second run from hitting a memory spike that
+      can crash the Railway container (OOM kill → page reload → apparent crash).
+    """
+    logger.info("Building LangGraph pipeline (first run or cache miss)…")
+    return build_graph()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -551,7 +584,7 @@ def _stream_full_pipeline(topic: str) -> None:
         st.info(f"📁 File '{file_name}' added as a source to the pipeline.")
 
     state_dict = _state_to_full_dict(initial)
-    app        = build_graph()
+    app        = _get_pipeline_graph()   # cached — does NOT rebuild on every run
     step_idx   = 0
     final_state: ResearchState | None = None
 

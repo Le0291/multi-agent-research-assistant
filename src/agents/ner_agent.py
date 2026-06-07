@@ -60,6 +60,13 @@ _TECH_REMAPS: set[str] = {
     "Trafilatura", "Pydantic", "FastAPI", "Docker", "Railway",
     "Markdown", "PDF", "JSON", "YAML", "REST", "GraphQL",
     "Claude API", "Brave Search", "Tavily API",
+    # Compound AI/ML terms that SpaCy often mis-tags as PERSON or ORG
+    "Language Model", "Large Language Model", "Large Action Model",
+    "Diffusion Models", "Diffusion Model", "Foundation Model",
+    "Vector Store", "Vector Database", "Embedding Model",
+    "ReAct Agents", "ReAct Agent", "Autonomous Agent",
+    "Interface Streamlit", "Gradio", "Python", "JavaScript",
+    "Format Markdown", "Markdown PDF",
 }
 
 # Case-insensitive lookup set for fast tech-term checking
@@ -78,6 +85,12 @@ _STOP_ENTITIES: set[str] = {
     # Common noise determiners / quantifiers
     "many", "several", "few", "more", "most", "other", "some", "any",
     "all", "each", "both", "much", "such", "same", "also", "about",
+    # Generic action/document words that SpaCy tags as ORG/PERSON
+    "drafts", "reviews", "review", "draft", "overview", "description",
+    "descriptions", "working", "receives", "deliverables", "deliverable",
+    "format", "interface", "programming", "language", "system",
+    "project", "course", "size", "build", "output", "input",
+    "intelligence",  # too generic — "Artificial Intelligence" is caught by phrase
 }
 
 
@@ -180,8 +193,23 @@ def _extract_spacy(text: str, url: str, nlp) -> list[tuple[str, str, str]]:
 
         # ── Filter 7: garbage character filter ───────────────────────────────
         # Drop entities where >25% of chars are special (e.g., "+--+", "v v v")
-        special = sum(not (c.isalnum() or c.isspace() or c in ".-,'") for c in surface)
+        special = sum(not (c.isalnum() or c.isspace() or c in ".-,'&/()") for c in surface)
         if len(surface) > 4 and special / len(surface) > 0.25:
+            continue
+
+        # ── Filter 7b: bullet / symbol prefix ────────────────────────────────
+        # Drop entities starting with bullet chars, symbols, or digits+dash
+        if re.match(r'^[•·▪▸►▹\-–—*#@$%^&]', surface):
+            continue
+
+        # ── Filter 7c: numeric suffix garbage ────────────────────────────────
+        # Drop entities ending in loose numbers like "Size 2-", "Description 5.1"
+        if re.search(r'\s\d[\d.\-]*\s*$', surface):
+            continue
+
+        # ── Filter 7d: single-word generic terms via stop-entity check ────────
+        # Already handled by _STOP_ENTITIES for lowercase; also check title-case
+        if surface.title().lower() in _STOP_ENTITIES or surface.lower() in _STOP_ENTITIES:
             continue
 
         # ── Filter 8: tech-term category remapping ────────────────────────────

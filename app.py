@@ -56,30 +56,30 @@ _SHARED_CSS = """
 /* Progress bar colour (same in both themes) */
 .stProgress .st-bo { background-color: #3498db; }
 
-/* Mode badge pills */
+/* Mode badge pills — high specificity + !important so theme text rules
+   (e.g. the dark-mode "make all text light") can never wash them out. */
 .mode-pill {
     display:inline-block; padding:3px 10px; border-radius:12px;
     font-size:0.78rem; font-weight:600; margin-bottom:6px;
 }
-.mode-full       { background:#d4edda; color:#155724; }
-.mode-playground { background:#cce5ff; color:#004085; }
-
-/* Score colours */
-.score-high { color:#27ae60; font-weight:bold; font-size:1.4rem; }
-.score-low  { color:#e74c3c; font-weight:bold; font-size:1.4rem; }
-
-/* File upload pill */
-.file-pill {
+.stApp .mode-full       { background:#d4edda !important; color:#155724 !important; }
+.stApp .mode-playground { background:#cce5ff !important; color:#004085 !important; }
+.stApp .file-pill {
     display:inline-block; padding:3px 10px; border-radius:12px;
     font-size:0.78rem; font-weight:600; margin-bottom:6px;
-    background:#fff3cd; color:#856404;
+    background:#fff3cd !important; color:#856404 !important;
 }
+
+/* Score colours (also protected with !important) */
+.stApp .score-high { color:#27ae60 !important; font-weight:bold; font-size:1.4rem; }
+.stApp .score-low  { color:#e74c3c !important; font-weight:bold; font-size:1.4rem; }
 """
 
 # Per-theme colour tokens.  We override Streamlit's main containers so the whole
 # page (not just our custom elements) switches between light and dark.
 _LIGHT_CSS = """
 .stApp { background-color: #ffffff; color: #1a1a1a; }
+[data-testid="stHeader"] { background-color: #ffffff; }
 section[data-testid="stSidebar"] { background-color: #f4f6f8; }
 .metric-card {
     background:#f8f9fa; border-radius:8px; padding:14px;
@@ -100,21 +100,53 @@ section[data-testid="stSidebar"] { background-color: #f4f6f8; }
 """
 
 _DARK_CSS = """
-.stApp { background-color: #0e1117; color: #e6e6e6; }
-section[data-testid="stSidebar"] { background-color: #161a23; }
-/* Make headings, paragraphs and markdown text light on dark */
-.stApp h1, .stApp h2, .stApp h3, .stApp h4,
-.stApp p, .stApp li, .stApp span, .stApp label,
-.stApp .stMarkdown { color: #e6e6e6 !important; }
-/* Inputs / text areas */
-.stApp textarea, .stApp input, .stApp .stTextInput input,
-.stApp .stSelectbox div[data-baseweb="select"] {
+/* Main containers + the top header toolbar */
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] { background-color: #0e1117 !important; color: #e6e6e6 !important; }
+[data-testid="stHeader"] { background-color: #0e1117 !important; }
+[data-testid="stToolbar"] { color: #e6e6e6 !important; }
+section[data-testid="stSidebar"] { background-color: #161a23 !important; }
+
+/* Body text — target Streamlit's markdown containers and common text elements.
+   NOTE: we deliberately do NOT use a bare `span` selector here, because that
+   would override the coloured badge pills above. */
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+.stApp p, .stApp li, .stApp label,
+.stApp [data-testid="stMarkdownContainer"],
+.stApp [data-testid="stWidgetLabel"],
+.stApp [data-testid="stMetricValue"],
+.stApp [data-testid="stMetricLabel"] { color: #e6e6e6 !important; }
+
+/* Caption / help text slightly dimmer */
+.stApp [data-testid="stCaptionContainer"] { color: #9aa4b2 !important; }
+
+/* Inputs, text areas, selectboxes */
+.stApp textarea, .stApp input,
+.stApp .stTextInput input, .stApp .stTextArea textarea,
+.stApp .stSelectbox div[data-baseweb="select"] > div {
     background-color:#1c2230 !important; color:#e6e6e6 !important;
+    border-color:#2a2f3a !important;
 }
+
+/* Secondary buttons (e.g. "Demo Topic") — primary blue button keeps its colour */
+.stApp .stButton button[kind="secondary"],
+.stApp .stDownloadButton button {
+    background-color:#1c2230 !important; color:#e6e6e6 !important;
+    border:1px solid #2a2f3a !important;
+}
+
+/* Expanders */
+.stApp [data-testid="stExpander"] {
+    background-color:#161a23 !important; border:1px solid #2a2f3a !important;
+}
+.stApp [data-testid="stExpander"] summary { color:#e6e6e6 !important; }
+
 /* Dataframes / tables */
 .stApp [data-testid="stTable"], .stApp [data-testid="stDataFrame"] {
-    background-color:#161a23; color:#e6e6e6;
+    background-color:#161a23 !important; color:#e6e6e6 !important;
 }
+
 .metric-card {
     background:#1c2230; border-radius:8px; padding:14px;
     border-left:4px solid #3498db; margin:4px 0; color:#e6e6e6;

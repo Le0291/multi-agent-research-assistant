@@ -92,7 +92,6 @@ def _search_duckduckgo_fallback(query: str, max_results: int = 10) -> list[dict[
     Minimal fallback: fetches DuckDuckGo HTML and parses result links.
     Only used when no API key is configured — quality is lower.
     """
-    import re
     from urllib.parse import quote_plus
 
     url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"

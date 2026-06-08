@@ -17,7 +17,7 @@ from typing import Any
 import streamlit as st
 
 from src.config import config
-from src.router import ALL_MODES, MODE_DESCRIPTIONS, MODE_INPUTS, route
+from src.router import MODE_DESCRIPTIONS, MODE_INPUTS, route
 from src.utils.cost_tracker import format_cost_table
 from src.ui.components import render_file_upload
 

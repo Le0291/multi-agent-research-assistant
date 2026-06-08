@@ -10,7 +10,6 @@ Usage:
 
 from __future__ import annotations
 
-from collections import defaultdict
 from src.state import SourceRecord, CostMetrics
 from src.agents.classification_agent import _classify_source
 

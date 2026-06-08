@@ -10,7 +10,6 @@ Output: benchmark_results.csv in the project root.
 from __future__ import annotations
 
 import csv
-import dataclasses
 import time
 from datetime import datetime
 from pathlib import Path

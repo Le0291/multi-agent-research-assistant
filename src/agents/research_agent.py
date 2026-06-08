@@ -17,18 +17,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
-
 from src.config import config
-from src.llm import invoke_claude
 from src.state import ResearchState, SourceRecord
 from src.tools.mcp_tools import call_tool
 
 logger = logging.getLogger(__name__)
-
-SYSTEM_PROMPT = """You are a thorough academic research agent.
-Given a research topic and sub-questions, rate each source snippet 1-10 for
-relevance.  Return ONLY the integer score, nothing else."""
 
 
 def _score_source(topic: str, content: str, cost_metrics: Any) -> float:

@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import os
 import textwrap
-from pathlib import Path
 from typing import Any
 
 from src.config import config
@@ -42,7 +41,6 @@ _COLORS  = [_PRIMARY, _GREEN, _AMBER, _RED, _PURPLE, "#ff9f7f", "#7fd4ff", "#a8f
 
 def _apply_dark_style(fig, ax_list: list) -> None:
     """Apply the shared dark theme to a figure and its axes."""
-    import matplotlib.pyplot as plt  # noqa: PLC0415
     fig.patch.set_facecolor(_BG)
     for ax in ax_list:
         ax.set_facecolor(_SURFACE)
@@ -168,7 +166,6 @@ def _chart_theme_map(state: ResearchState, topic: str) -> str:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt  # noqa: PLC0415
     import numpy as np  # noqa: PLC0415
-    import matplotlib.patches as mpatches  # noqa: PLC0415
 
     themes       = state.themes[:8]       if state.themes       else []
     contradictions = state.contradictions[:4] if state.contradictions else []

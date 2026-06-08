@@ -14,7 +14,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import shutil
-from pathlib import Path
 from typing import Any
 
 from src.config import config

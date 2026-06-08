@@ -20,7 +20,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.llm import invoke_claude
 from src.state import ResearchState
-from src.tools.vector_store import index_sources, query_store
+from src.tools.vector_store import index_sources
 
 logger = logging.getLogger(__name__)
 

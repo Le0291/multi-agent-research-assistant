@@ -49,7 +49,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from src.state import ResearchState, SourceRecord, CostMetrics
+from src.state import ResearchState, SourceRecord
 
 logger = logging.getLogger(__name__)
 
@@ -448,7 +448,6 @@ def run_writer_only(inputs: dict[str, Any]) -> dict[str, Any]:
     _run_illustration(state)  # internally: orchestrator→research→classify→NER→analysis
 
     from src.agents.writer_agent import writer_agent_node  # noqa: PLC0415
-    from src.utils.citations import build_references_section  # noqa: PLC0415
 
     updates = writer_agent_node(state)
     state.draft = updates.get("draft", "")

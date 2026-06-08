@@ -57,7 +57,7 @@ def save_pdf(markdown_content: str, topic: str) -> str:
 def _save_pdf_reportlab(content: str, filepath: Path) -> None:
     """Generate a styled PDF with ReportLab."""
     from reportlab.lib.pagesizes import A4  # noqa: PLC0415
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle  # noqa: PLC0415
+    from reportlab.lib.styles import getSampleStyleSheet  # noqa: PLC0415
     from reportlab.lib.units import cm  # noqa: PLC0415
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable  # noqa: PLC0415
     from reportlab.lib import colors  # noqa: PLC0415

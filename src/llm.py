@@ -43,8 +43,13 @@ def get_claude(
         api_key=config.anthropic_api_key,
         temperature=temperature if temperature is not None else config.anthropic_temperature,
         max_tokens=max_tokens if max_tokens is not None else config.anthropic_max_tokens,
-        # Automatically retry up to 3 times on transient Anthropic errors
-        max_retries=3,
+        # Hard 90-second per-request timeout. Without this the client can hang
+        # INDEFINITELY on a network stall or an unreachable API endpoint, which
+        # freezes the whole pipeline at "Running Orchestrator…" with no error.
+        # With a timeout the call fails fast and the agent's fallback kicks in.
+        default_request_timeout=90,
+        # Retry up to 2 times on transient Anthropic errors (timeouts, 5xx, 429)
+        max_retries=2,
     )
 
 

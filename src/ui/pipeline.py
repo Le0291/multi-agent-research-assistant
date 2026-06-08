@@ -243,11 +243,22 @@ def _fill_expander(node_name: str, label: str, state: ResearchState, expanders: 
 
         elif node_name == "illustration_agent":
             from src.config import config as _cfg  # noqa: PLC0415
-            _dalle_used = any("dalle_" in Path(p).name for p in state.illustrations)
+            _dalle_used   = any("dalle_" in Path(p).name for p in state.illustrations)
+            _dalle_errors = [e for e in (state.errors or []) if e.startswith("DALL-E figure")]
             if _dalle_used:
                 st.success(f"✨ {len(state.illustrations)} DALL-E figures generated")
+            elif _dalle_errors:
+                # OpenAI key is set but DALL-E failed — show the actual error so user can act
+                st.warning(
+                    f"⚠️ DALL-E failed for all {len(_dalle_errors)} figure(s) — "
+                    "showing data charts instead. See errors below:"
+                )
+                for _e in _dalle_errors:
+                    st.caption(f"🔴 {_e}")
+            elif _cfg.openai_api_key:
+                st.info(f"📊 {len(state.illustrations)} data charts (DALL-E key found but not used)")
             else:
-                st.info(f"📊 {len(state.illustrations)} data charts generated (no OpenAI key → matplotlib)")
+                st.info(f"📊 {len(state.illustrations)} data charts (set OPENAI_API_KEY to enable DALL-E)")
             for i, path in enumerate(state.illustrations):
                 try:
                     st.image(path, caption=Path(path).stem.replace("_", " ").title(), width=480)

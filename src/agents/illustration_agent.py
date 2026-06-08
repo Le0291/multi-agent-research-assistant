@@ -12,6 +12,7 @@ All generated files are saved to generated_images/.
 from __future__ import annotations
 
 import logging
+import os
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -264,12 +265,21 @@ def _chart_topic_breakdown(topic: str, index: int) -> str:
 #  DALL-E 3 generator (optional, requires OPENAI_API_KEY)                    #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
-def _make_dalle_image(prompt: str, index: int, topic: str) -> str:
-    """Generate an image with DALL-E 3. Raises on any failure."""
-    import openai  # noqa: PLC0415
-    import httpx   # noqa: PLC0415
+# OpenAI image model.  DALL-E 3 is NO LONGER available on new accounts —
+# OpenAI replaced it with the gpt-image-1 family.  gpt-image-1 returns the
+# image as base64 (b64_json), NOT a URL like dall-e-3 did, and uses quality
+# values low/medium/high/auto (not standard/hd).  Overridable via env var.
+_OPENAI_IMAGE_MODEL   = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1")
+_OPENAI_IMAGE_QUALITY = os.environ.get("OPENAI_IMAGE_QUALITY", "medium")
 
-    client = openai.OpenAI(api_key=config.openai_api_key)
+
+def _make_dalle_image(prompt: str, index: int, topic: str) -> str:
+    """Generate an image with OpenAI's image model. Raises on any failure."""
+    import openai   # noqa: PLC0415
+    import base64   # noqa: PLC0415
+
+    # timeout=120 — gpt-image-1 at higher quality can take 30-60s to render
+    client = openai.OpenAI(api_key=config.openai_api_key, timeout=120.0)
     # Keep prompt detailed and data-driven — avoid 'minimal' which causes blank output
     enhanced = (
         f"Detailed academic research infographic about '{topic}': {prompt}. "
@@ -280,17 +290,31 @@ def _make_dalle_image(prompt: str, index: int, topic: str) -> str:
         "NOT a simple logo, NOT minimalist."
     )
     response = client.images.generate(
-        model="dall-e-3",
+        model=_OPENAI_IMAGE_MODEL,
         prompt=enhanced[:1000],
         size="1024x1024",
-        quality="hd",        # hd for better detail
+        quality=_OPENAI_IMAGE_QUALITY,   # gpt-image-1: low / medium / high / auto
         n=1,
     )
-    img_bytes = httpx.get(response.data[0].url, timeout=30).content
+
+    # ── Read the image bytes — handle BOTH response shapes ────────────────────
+    #   • gpt-image-1 / gpt-image-2 → base64 in data[0].b64_json
+    #   • dall-e-3 (legacy)         → hosted URL in data[0].url
+    data0 = response.data[0]
+    b64   = getattr(data0, "b64_json", None)
+    url   = getattr(data0, "url", None)
+    if b64:
+        img_bytes = base64.b64decode(b64)
+    elif url:
+        import httpx  # noqa: PLC0415
+        img_bytes = httpx.get(url, timeout=30).content
+    else:
+        raise RuntimeError("Image response contained neither b64_json nor url")
+
     filename  = f"dalle_{index + 1}_{topic[:20].replace(' ', '_')}.png"
     filepath  = config.images_dir / filename
     filepath.write_bytes(img_bytes)
-    logger.info("Saved DALL-E image: %s", filepath)
+    logger.info("Saved OpenAI image (%s): %s", _OPENAI_IMAGE_MODEL, filepath)
     return str(filepath)
 
 
@@ -366,7 +390,10 @@ def illustration_agent_node(state: ResearchState) -> dict[str, Any]:
                 path = _make_dalle_image(prompt, i, state.topic)
                 logger.info("Figure %d: DALL-E ✓", i + 1)
             except Exception as exc:
-                logger.warning("DALL-E failed for figure %d: %s — using matplotlib.", i + 1, exc)
+                # Store the actual error in state so the UI can display it clearly
+                err_msg = f"DALL-E figure {i + 1}: {type(exc).__name__}: {exc}"
+                logger.warning("%s — using matplotlib fallback.", err_msg)
+                state.errors.append(err_msg)
 
         # ── Fall back to data-driven matplotlib chart ─────────────────────
         if not path:

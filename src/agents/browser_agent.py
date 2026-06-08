@@ -23,8 +23,10 @@ from src.tools.browser_tool import browser_navigate
 
 logger = logging.getLogger(__name__)
 
-# Number of top sources to visit with the real browser
-_BROWSER_VISIT_COUNT = 3
+# Number of top sources to visit with the real browser.
+# Kept at 1 for Railway / memory-constrained environments — one page demonstrates
+# the LAM capability while keeping RAM and wall-clock time low on free-tier dynos.
+_BROWSER_VISIT_COUNT = 1
 
 
 def browser_agent_node(state: ResearchState) -> dict[str, Any]:
@@ -34,38 +36,45 @@ def browser_agent_node(state: ResearchState) -> dict[str, Any]:
     Input state fields used : classified_sources
     Output state fields set  : browser_results, status
     """
-    sources_to_visit = state.classified_sources[:_BROWSER_VISIT_COUNT]
+    try:
+        sources_to_visit = state.classified_sources[:_BROWSER_VISIT_COUNT]
 
-    if not sources_to_visit:
-        logger.info("Browser Agent: no sources to visit.")
+        if not sources_to_visit:
+            logger.info("Browser Agent: no sources to visit.")
+            return {"browser_results": [], "status": "analyzing"}
+
+        logger.info("Browser Agent: visiting %d source(s) via Playwright.", len(sources_to_visit))
+        results: list[dict[str, Any]] = []
+
+        for src in sources_to_visit:
+            logger.info("  Browser navigating to: %s", src.url)
+
+            # Call the Playwright tool — always returns a dict (never raises)
+            result = browser_navigate(src.url, take_screenshot=True)
+
+            # Merge browser-extracted metadata back into the source record
+            if "body_text" in result and result["body_text"]:
+                if len(result["body_text"]) > len(src.full_content or ""):
+                    src.full_content = result["body_text"]
+
+            result["source_title"] = src.title
+            results.append(result)
+
+            if "error" in result:
+                # Non-fatal — record and continue
+                state.errors.append(
+                    f"Browser agent error for {src.url}: {result['error']}"
+                )
+
+        logger.info("Browser Agent: completed %d visit(s).", len(results))
+        return {
+            "browser_results": results,
+            "status": "analyzing",
+        }
+
+    except Exception as exc:
+        # Absolute last resort — should never reach here, but if it does we
+        # record the error and let the pipeline continue rather than crashing.
+        logger.exception("Browser agent unexpected failure: %s", exc)
+        state.errors.append(f"Browser agent failed entirely: {exc}")
         return {"browser_results": [], "status": "analyzing"}
-
-    logger.info("Browser Agent: visiting %d sources via Playwright.", len(sources_to_visit))
-    results: list[dict[str, Any]] = []
-
-    for src in sources_to_visit:
-        logger.info("  Browser navigating to: %s", src.url)
-
-        # Call the Playwright tool — returns structured metadata + screenshot path
-        result = browser_navigate(src.url, take_screenshot=True)
-
-        # Merge browser-extracted metadata back into the source record
-        if "body_text" in result and result["body_text"]:
-            # If the browser got richer content than the static scraper, upgrade it
-            if len(result["body_text"]) > len(src.full_content or ""):
-                src.full_content = result["body_text"]
-
-        result["source_title"] = src.title
-        results.append(result)
-
-        if "error" in result:
-            # Log but don't crash — browser automation is best-effort
-            state.errors.append(
-                f"Browser agent error for {src.url}: {result['error']}"
-            )
-
-    logger.info("Browser Agent: completed %d visits.", len(results))
-    return {
-        "browser_results": results,
-        "status": "analyzing",
-    }

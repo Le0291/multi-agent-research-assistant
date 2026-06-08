@@ -270,16 +270,20 @@ def _make_dalle_image(prompt: str, index: int, topic: str) -> str:
     import httpx   # noqa: PLC0415
 
     client = openai.OpenAI(api_key=config.openai_api_key)
+    # Keep prompt detailed and data-driven — avoid 'minimal' which causes blank output
     enhanced = (
-        f"Academic research illustration for a research paper: {prompt}. "
-        "Clean, professional, dark background (#101418), minimal style, "
-        "high contrast, suitable for academic publication."
+        f"Detailed academic research infographic about '{topic}': {prompt}. "
+        "Style: professional data visualization, rich in information, "
+        "dark navy/charcoal background, vibrant accent colors for labels and nodes, "
+        "clear typography, suitable for a scientific research paper. "
+        "Include relevant diagrams, charts, or concept maps — NOT abstract art, "
+        "NOT a simple logo, NOT minimalist."
     )
     response = client.images.generate(
         model="dall-e-3",
         prompt=enhanced[:1000],
         size="1024x1024",
-        quality="standard",
+        quality="hd",        # hd for better detail
         n=1,
     )
     img_bytes = httpx.get(response.data[0].url, timeout=30).content
@@ -301,12 +305,39 @@ _CHART_BUILDERS = [
     lambda s, t: _chart_theme_map(s, t),
 ]
 
-_DALLE_PROMPTS = [
-    "Named entity distribution chart showing categories of people, organizations, "
-    "locations, and technologies mentioned in the research",
-    "Source quality and relevance analysis dashboard showing academic and web sources",
-    "Concept relationship map showing key themes and their interconnections",
-]
+def _build_dalle_prompts(topic: str, state: "ResearchState") -> list[str]:
+    """
+    Build 3 topic-aware DALL-E prompts from actual pipeline data.
+    Always uses real state data — never the writer-generated image_prompts
+    which are usually vague or off-topic.
+    """
+    # Gather real entity names for Figure 1
+    top_entities = ", ".join(e.text for e in state.entities[:8]) if state.entities else topic
+    # Gather real themes for Figure 3
+    top_themes = "; ".join(state.themes[:5]) if state.themes else f"key aspects of {topic}"
+
+    return [
+        # Figure 1 — Knowledge map
+        (f"Detailed knowledge graph infographic for the research topic '{topic}'. "
+         f"Show key entities and concepts as interconnected labeled nodes: {top_entities}. "
+         "Use circles and arrows to show relationships, color-coded by category "
+         "(blue for technology, green for organizations, amber for concepts). "
+         "Dark background, white labels, professional academic style."),
+
+        # Figure 2 — Data analysis dashboard
+        (f"Academic research analysis dashboard for '{topic}'. "
+         "Show: (1) a bar chart of source types (academic papers, websites, news), "
+         "(2) a relevance score distribution histogram, "
+         "(3) a timeline of information sources. "
+         "Multi-panel layout, dark background, vibrant chart colors, clear axis labels."),
+
+        # Figure 3 — Theme mind map
+        (f"Radial mind map for research on '{topic}'. "
+         f"Central node labeled '{topic}' connected to key themes: {top_themes}. "
+         "Each theme has 2-3 sub-nodes showing related concepts. "
+         "Use a dark navy background, color-coded branches, bold readable text, "
+         "professional academic poster style."),
+    ]
 
 
 def illustration_agent_node(state: ResearchState) -> dict[str, Any]:
@@ -314,19 +345,23 @@ def illustration_agent_node(state: ResearchState) -> dict[str, Any]:
     LangGraph node: generate 3 data-driven figures for the report.
 
     Priority:
-      1. DALL-E 3 (if OPENAI_API_KEY set)
-      2. Data-driven Matplotlib charts from pipeline state (always works)
+      1. DALL-E 3 with curated topic-aware prompts (if OPENAI_API_KEY set).
+         NOTE: state.image_prompts (from writer) are intentionally ignored —
+         they are usually too vague.  We build richer prompts from actual
+         pipeline data (entities, themes, sources).
+      2. Data-driven Matplotlib charts built from pipeline state (always works).
     """
     illustration_paths: list[str] = []
+
+    # Build topic-aware prompts once (uses real entities + themes from state)
+    dalle_prompts = _build_dalle_prompts(state.topic, state)
 
     for i in range(3):  # Always produce 3 figures
         path = None
 
         # ── Try DALL-E first ──────────────────────────────────────────────
         if config.openai_api_key:
-            prompt = (state.image_prompts[i]
-                      if state.image_prompts and i < len(state.image_prompts)
-                      else _DALLE_PROMPTS[i])
+            prompt = dalle_prompts[i]   # Always use our curated prompts
             try:
                 path = _make_dalle_image(prompt, i, state.topic)
                 logger.info("Figure %d: DALL-E ✓", i + 1)

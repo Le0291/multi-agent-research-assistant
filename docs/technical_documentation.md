@@ -229,8 +229,8 @@ All settings live in `.env` (copy from `.env.example`):
 | `ANTHROPIC_API_KEY` | — | **Required** |
 | `TAVILY_API_KEY` | — | Primary search |
 | `BRAVE_API_KEY` | — | Secondary search |
-| `OPENAI_API_KEY` | — | Optional DALL-E images |
-| `ANTHROPIC_MODEL` | `claude-3-5-sonnet-20241022` | Model ID |
+| `OPENAI_API_KEY` | — | Optional gpt-image images |
+| `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Model ID |
 | `ANTHROPIC_MAX_TOKENS` | `8192` | Max output tokens |
 | `MIN_SOURCES` | `10` | Minimum sources required |
 | `MAX_REVISIONS` | `3` | Max writer→critic loops |

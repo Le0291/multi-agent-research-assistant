@@ -123,7 +123,7 @@ Create a `.env` file in the project root (it is git-ignored — never commit it)
 | `OPENAI_API_KEY` | Optional | — | Required only when `USE_AI_IMAGES=true` |
 | `OPENAI_IMAGE_MODEL` | Optional | `gpt-image-1` | `gpt-image-1` or `gpt-image-2` (when AI images on) |
 | `OPENAI_IMAGE_QUALITY` | Optional | `medium` | `low` / `medium` / `high` / `auto` (when AI images on) |
-| `ANTHROPIC_MODEL` | Optional | `claude-3-5-sonnet-20241022` | Claude model |
+| `ANTHROPIC_MODEL` | Optional | `claude-sonnet-4-6` | Claude model |
 | `ANTHROPIC_MAX_TOKENS` | Optional | `8192` | Max output tokens |
 | `ANTHROPIC_TEMPERATURE` | Optional | `0.3` | Sampling temperature |
 | `MIN_SOURCES` | Optional | `10` | Minimum sources collected |
@@ -254,7 +254,7 @@ Results are saved to `benchmark_results.csv`.
 | Speed | < 5 min per topic with Tavily |
 | Cost efficiency | Local NER/embedding; live cost tracker; configurable image quality |
 | Error handling | Per-node try/except + graph node wrapper, request timeouts, API fallbacks, never crashes |
-| Innovation | ReAct pattern, MCP tools, LAM browser, ChromaDB vector store, revision loop |
+| Innovation | ReAct pattern, MCP tools, LAM browser, ChromaDB RAG, revision loop |
 | Clean code | Type hints, module docstrings, inline comments |
 | Documentation | README + deep-dive docs + presentation outline |
 
@@ -267,7 +267,7 @@ Results are saved to `benchmark_results.csv`.
 - **Data-driven figures**: Matplotlib charts from real pipeline data with legible labels (optional gpt-image via `USE_AI_IMAGES`)
 - **Cost tracker**: live USD estimate shown in Streamlit
 - **Revision loop**: critic-driven writer improvement (up to 3 iterations)
-- **ChromaDB vector store**: sources embedded locally (sentence-transformers) and indexed for semantic search
+- **ChromaDB RAG**: sources embedded locally (sentence-transformers); the analyzer retrieves the most relevant passages per sub-question to ground its theme synthesis
 - **Run history**: instant recall of the last 3 reports within a session
 - **Agent Playground**: run any single agent in isolation with auto dependency resolution
 
@@ -366,7 +366,7 @@ multi_agent_research_assistant/
 │   │   ├── scrape_tool.py        ← httpx + BeautifulSoup
 │   │   ├── browser_tool.py       ← Playwright LAM (thread-isolated + timeout)
 │   │   ├── mcp_tools.py          ← Tool registry + dispatcher
-│   │   └── vector_store.py       ← ChromaDB semantic index (sentence-transformers)
+│   │   └── vector_store.py       ← ChromaDB RAG: index + semantic retrieval
 │   ├── ui/
 │   │   ├── sidebar.py            ← Nav buttons, theme toggle, recent runs
 │   │   ├── pipeline.py           ← Full Pipeline UI, history, downloads
@@ -407,7 +407,7 @@ multi_agent_research_assistant/
 | Scraping | httpx + BeautifulSoup |
 | Browser automation | Playwright (headless Chromium) |
 | NER / NLP | SpaCy `en_core_web_sm` |
-| Vector store | ChromaDB + sentence-transformers |
+| Vector store / RAG | ChromaDB + sentence-transformers |
 | Image generation | OpenAI gpt-image-1 / gpt-image-2 |
 | Charts | Matplotlib |
 | UI | Streamlit |

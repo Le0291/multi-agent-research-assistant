@@ -38,7 +38,7 @@ class Config:
 
     # ── Anthropic ─────────────────────────────────────────────────────────────
     anthropic_api_key: str = field(default_factory=lambda: os.environ.get("ANTHROPIC_API_KEY", ""))
-    anthropic_model: str = field(default_factory=lambda: os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"))
+    anthropic_model: str = field(default_factory=lambda: os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"))
     anthropic_max_tokens: int = field(default_factory=lambda: int(os.environ.get("ANTHROPIC_MAX_TOKENS", "8192")))
     anthropic_temperature: float = field(default_factory=lambda: float(os.environ.get("ANTHROPIC_TEMPERATURE", "0.3")))
 

@@ -123,7 +123,7 @@ Create a `.env` file in the project root (it is git-ignored — never commit it)
 | `OPENAI_API_KEY` | Optional | — | Required only when `USE_AI_IMAGES=true` |
 | `OPENAI_IMAGE_MODEL` | Optional | `gpt-image-1` | `gpt-image-1` or `gpt-image-2` (when AI images on) |
 | `OPENAI_IMAGE_QUALITY` | Optional | `medium` | `low` / `medium` / `high` / `auto` (when AI images on) |
-| `ANTHROPIC_MODEL` | Optional | `claude-sonnet-4-6` | Claude model |
+| `ANTHROPIC_MODEL` | Optional | `claude-haiku-4-5-20251001` | Claude model |
 | `ANTHROPIC_MAX_TOKENS` | Optional | `8192` | Max output tokens |
 | `ANTHROPIC_TEMPERATURE` | Optional | `0.3` | Sampling temperature |
 | `MIN_SOURCES` | Optional | `10` | Minimum sources collected |

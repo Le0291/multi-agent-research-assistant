@@ -230,7 +230,7 @@ All settings live in `.env` (copy from `.env.example`):
 | `TAVILY_API_KEY` | — | Primary search |
 | `BRAVE_API_KEY` | — | Secondary search |
 | `OPENAI_API_KEY` | — | Optional gpt-image images |
-| `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Model ID |
+| `ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` | Model ID |
 | `ANTHROPIC_MAX_TOKENS` | `8192` | Max output tokens |
 | `MIN_SOURCES` | `10` | Minimum sources required |
 | `MAX_REVISIONS` | `3` | Max writer→critic loops |

@@ -81,8 +81,8 @@ def _to_cost(c: Any) -> CostMetrics:
         return CostMetrics(
             input_tokens=int(c.get("input_tokens", 0)),
             output_tokens=int(c.get("output_tokens", 0)),
-            input_price_per_1m=float(c.get("input_price_per_1m", 3.0)),
-            output_price_per_1m=float(c.get("output_price_per_1m", 15.0)),
+            input_price_per_1m=float(c.get("input_price_per_1m", 1.0)),
+            output_price_per_1m=float(c.get("output_price_per_1m", 5.0)),
         )
     return CostMetrics()
 

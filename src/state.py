@@ -42,9 +42,9 @@ class CostMetrics:
     """Running token and cost estimates for one research session."""
     input_tokens: int = 0
     output_tokens: int = 0
-    # Approximate prices (USD per 1 M tokens) for claude-3-5-sonnet
-    input_price_per_1m: float = 3.0
-    output_price_per_1m: float = 15.0
+    # Approximate prices (USD per 1 M tokens) for claude-haiku-4-5
+    input_price_per_1m: float = 1.0
+    output_price_per_1m: float = 5.0
 
     @property
     def estimated_cost_usd(self) -> float:

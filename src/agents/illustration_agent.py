@@ -272,6 +272,14 @@ def _chart_topic_breakdown(topic: str, index: int) -> str:
 _OPENAI_IMAGE_MODEL   = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1")
 _OPENAI_IMAGE_QUALITY = os.environ.get("OPENAI_IMAGE_QUALITY", "medium")
 
+# Whether to use AI image generation at all.  DEFAULT IS OFF because AI image
+# models (gpt-image, DALL-E, etc.) cannot render legible text — they paint
+# text-shaped pixels, so any labels/diagrams come out as gibberish.  The
+# data-driven Matplotlib charts below use REAL, perfectly legible text built
+# from the actual pipeline data, which is more useful for an academic report.
+# Set USE_AI_IMAGES=true to opt back into gpt-image generation.
+_USE_AI_IMAGES = os.environ.get("USE_AI_IMAGES", "false").strip().lower() in ("1", "true", "yes", "on")
+
 
 def _make_dalle_image(prompt: str, index: int, topic: str) -> str:
     """Generate an image with OpenAI's image model. Raises on any failure."""
@@ -366,41 +374,43 @@ def _build_dalle_prompts(topic: str, state: "ResearchState") -> list[str]:
 
 def illustration_agent_node(state: ResearchState) -> dict[str, Any]:
     """
-    LangGraph node: generate 3 data-driven figures for the report.
+    LangGraph node: generate 3 figures for the report.
 
-    Priority:
-      1. DALL-E 3 with curated topic-aware prompts (if OPENAI_API_KEY set).
-         NOTE: state.image_prompts (from writer) are intentionally ignored —
-         they are usually too vague.  We build richer prompts from actual
-         pipeline data (entities, themes, sources).
-      2. Data-driven Matplotlib charts built from pipeline state (always works).
+    Priority (default):
+      1. Data-driven Matplotlib charts built from the ACTUAL pipeline state
+         (entity distribution, source quality, theme map).  These render REAL,
+         perfectly legible text — ideal for an academic report.
+      2. AI image generation (gpt-image) ONLY if USE_AI_IMAGES=true.  Disabled by
+         default because AI models cannot render legible text (labels come out
+         as gibberish).  state.image_prompts from the writer are ignored — we
+         build richer prompts from real data when AI mode is on.
     """
     illustration_paths: list[str] = []
 
-    # Build topic-aware prompts once (uses real entities + themes from state)
+    # Curated AI prompts (only used when USE_AI_IMAGES is enabled)
     dalle_prompts = _build_dalle_prompts(state.topic, state)
+    ai_mode = _USE_AI_IMAGES and bool(config.openai_api_key)
 
     for i in range(3):  # Always produce 3 figures
         path = None
 
-        # ── Try DALL-E first ──────────────────────────────────────────────
-        if config.openai_api_key:
-            prompt = dalle_prompts[i]   # Always use our curated prompts
+        # ── Optional: AI image generation (opt-in via USE_AI_IMAGES=true) ──
+        if ai_mode:
             try:
-                path = _make_dalle_image(prompt, i, state.topic)
-                logger.info("Figure %d: DALL-E ✓", i + 1)
+                path = _make_dalle_image(dalle_prompts[i], i, state.topic)
+                logger.info("Figure %d: gpt-image ✓", i + 1)
             except Exception as exc:
                 # Store the actual error in state so the UI can display it clearly
-                err_msg = f"DALL-E figure {i + 1}: {type(exc).__name__}: {exc}"
-                logger.warning("%s — using matplotlib fallback.", err_msg)
+                err_msg = f"AI image figure {i + 1}: {type(exc).__name__}: {exc}"
+                logger.warning("%s — falling back to data chart.", err_msg)
                 state.errors.append(err_msg)
 
-        # ── Fall back to data-driven matplotlib chart ─────────────────────
+        # ── Primary: data-driven Matplotlib chart (legible, from real data) ──
         if not path:
             try:
                 builder = _CHART_BUILDERS[i]
                 path = builder(state, state.topic)
-                logger.info("Figure %d: matplotlib chart ✓", i + 1)
+                logger.info("Figure %d: data chart ✓", i + 1)
             except Exception as exc:
                 logger.error("Figure %d generation failed: %s", i + 1, exc)
                 state.errors.append(f"Figure {i + 1} generation failed: {exc}")

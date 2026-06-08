@@ -6,7 +6,7 @@ A competition-ready, production-quality multi-agent research pipeline built with
 
 Give it any research topic and it orchestrates **9 specialised AI agents** to
 produce a fully-cited academic report (Markdown + PDF) complete with named-entity
-analysis, AI-generated figures, and a self-critique revision loop.
+analysis, data-driven figures, and a self-critique revision loop.
 
 ---
 
@@ -39,8 +39,9 @@ Given any research topic, the system orchestrates **9 specialised AI agents** th
 4. Extract named entities (people, orgs, technologies, …) with a multi-layer filter
 5. Enrich the top source via real browser automation (Playwright)
 6. Synthesise 4–6 themes with supporting evidence
-7. Generate academic figures (OpenAI **gpt-image-1 / gpt-image-2**, with a
-   data-driven Matplotlib fallback)
+7. Generate academic figures — **data-driven Matplotlib charts** by default
+   (real legible labels from pipeline data); optional OpenAI **gpt-image-1 /
+   gpt-image-2** when `USE_AI_IMAGES=true`
 8. Write a polished, fully-cited Markdown report
 9. Review the report against a rubric (score 1–10); revise if needed
 
@@ -53,13 +54,14 @@ Given any research topic, the system orchestrates **9 specialised AI agents** th
 - 🏷️ **High-precision NER** — SpaCy + an 8-layer filter that strips URLs, table
   garbage, stop-words, and sentence fragments, then remaps tech terms & dedupes
 - 🌐 **LAM browser automation** — Playwright headless Chromium with screenshots
-- 🎨 **AI figure generation** — OpenAI gpt-image-1/2, falls back to data-driven
-  Matplotlib charts (entity distribution, source quality, theme map) when no key
+- 🎨 **Data-driven figures** — Matplotlib charts (entity distribution, source
+  quality, theme map) with real legible labels by default; optional OpenAI
+  gpt-image-1/2 via `USE_AI_IMAGES=true`
 - 🌓 **Dark / Light theme toggle** — fully themed Stitch-style UI, zero white flashes
 - 📚 **Run history** — the last 3 pipeline runs are kept in-session for quick recall
 - ⬇️ **Per-figure & report downloads** — PNG figures, Markdown, and PDF export
 - 💰 **Live cost tracker** — real-time USD/token estimate in the UI
-- 🛡️ **Never crashes** — `@safe_node` fallbacks, request timeouts, graceful degradation
+- 🛡️ **Never crashes** — per-node try/except + a graph-level node wrapper, request timeouts, graceful degradation
 - ☁️ **Deploy-ready** — Railway config (`railway.toml`) with Playwright auto-install
 
 ---
@@ -102,7 +104,7 @@ Given any research topic, the system orchestrates **9 specialised AI agents** th
 | NER Agent | `src/agents/ner_agent.py` | SpaCy NER → cleaned entity frequency table + co-occurrence |
 | Browser Agent | `src/agents/browser_agent.py` | Playwright LAM — screenshot + structured metadata (thread-isolated, timed out) |
 | Analyzer Agent | `src/agents/analyzer_agent.py` | Themes, contradictions, outline, image prompts |
-| Illustration Agent | `src/agents/illustration_agent.py` | OpenAI gpt-image figures, with Matplotlib data-chart fallback |
+| Illustration Agent | `src/agents/illustration_agent.py` | Data-driven Matplotlib charts (default); optional gpt-image via `USE_AI_IMAGES` |
 | Writer Agent | `src/agents/writer_agent.py` | Full Markdown report with inline citations |
 | Critic Agent | `src/agents/critic_agent.py` | Rubric score 1–10; APPROVE or REVISE decision |
 
@@ -117,9 +119,10 @@ Create a `.env` file in the project root (it is git-ignored — never commit it)
 | `ANTHROPIC_API_KEY` | ✅ Yes | — | Your Anthropic API key |
 | `TAVILY_API_KEY` | Recommended | — | Tavily search (best quality) |
 | `BRAVE_API_KEY` | Optional | — | Brave Search fallback |
-| `OPENAI_API_KEY` | Optional | — | Enables AI image generation |
-| `OPENAI_IMAGE_MODEL` | Optional | `gpt-image-1` | Image model — `gpt-image-1` or `gpt-image-2` |
-| `OPENAI_IMAGE_QUALITY` | Optional | `medium` | `low` / `medium` / `high` / `auto` |
+| `USE_AI_IMAGES` | Optional | `false` | `true` = gpt-image figures; `false` = legible Matplotlib charts |
+| `OPENAI_API_KEY` | Optional | — | Required only when `USE_AI_IMAGES=true` |
+| `OPENAI_IMAGE_MODEL` | Optional | `gpt-image-1` | `gpt-image-1` or `gpt-image-2` (when AI images on) |
+| `OPENAI_IMAGE_QUALITY` | Optional | `medium` | `low` / `medium` / `high` / `auto` (when AI images on) |
 | `ANTHROPIC_MODEL` | Optional | `claude-3-5-sonnet-20241022` | Claude model |
 | `ANTHROPIC_MAX_TOKENS` | Optional | `8192` | Max output tokens |
 | `ANTHROPIC_TEMPERATURE` | Optional | `0.3` | Sampling temperature |
@@ -127,14 +130,17 @@ Create a `.env` file in the project root (it is git-ignored — never commit it)
 | `MAX_SOURCES` | Optional | `15` | Maximum sources collected |
 | `MAX_REVISIONS` | Optional | `3` | Critic→Writer revision cap |
 | `CRITIC_PASS_SCORE` | Optional | `7` | Score needed to APPROVE |
+| `BROWSER_VISIT_COUNT` | Optional | `3` | Pages the browser agent visits |
 
-> **Note on images:** OpenAI retired `dall-e-3` for new accounts. This project
-> uses the current **gpt-image** family instead. The image model returns base64
-> data, which the illustration agent decodes automatically. If `OPENAI_API_KEY`
-> is missing or image generation fails, the app falls back to data-driven
-> Matplotlib charts so the pipeline always produces figures.
+> **Note on figures:** By default the app generates **data-driven Matplotlib
+> charts** with real, legible labels built from your pipeline data (entities,
+> sources, themes) — ideal for an academic report. To use AI image generation
+> instead, set `USE_AI_IMAGES=true` and provide `OPENAI_API_KEY`.  (AI models
+> render text as gibberish, which is why charts are the default.)  Note that
+> `dall-e-3` is unavailable on new accounts, so the **gpt-image** family is used;
+> it returns base64 image data which the agent decodes automatically.
 
-### Approximate image cost (per figure, 1024×1024)
+### Approximate AI-image cost (only when `USE_AI_IMAGES=true`, per figure 1024×1024)
 
 | Quality | Cost / image | Per run (3 figures) |
 |---------|--------------|---------------------|
@@ -185,9 +191,11 @@ Create a `.env` file in the project root and add at least your Anthropic key:
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
 TAVILY_API_KEY=tvly-...
-OPENAI_API_KEY=sk-proj-...        # optional, enables AI figures
-OPENAI_IMAGE_MODEL=gpt-image-1    # optional
-OPENAI_IMAGE_QUALITY=medium       # optional
+# Figures are legible Matplotlib charts by default. To use AI images instead:
+USE_AI_IMAGES=false               # set true to enable gpt-image
+OPENAI_API_KEY=sk-proj-...        # required only if USE_AI_IMAGES=true
+OPENAI_IMAGE_MODEL=gpt-image-1    # optional (gpt-image-1 | gpt-image-2)
+OPENAI_IMAGE_QUALITY=medium       # optional (low | medium | high | auto)
 ```
 
 ### Step 7 — Run the Streamlit app
@@ -242,11 +250,11 @@ Results are saved to `benchmark_results.csv`.
 | Inline citations | Every factual claim tagged [N] |
 | NER | SpaCy `en_core_web_sm` + 8-layer cleaning filter + frequency table |
 | Source classification | Claude + keyword fallback; 8 source types |
-| Illustrations | OpenAI gpt-image (optional) + Matplotlib data charts (always) |
+| Illustrations | Matplotlib data charts (default, always legible) + optional gpt-image |
 | Speed | < 5 min per topic with Tavily |
 | Cost efficiency | Local NER/embedding; live cost tracker; configurable image quality |
-| Error handling | `@safe_node`, request timeouts, API fallbacks, never crashes |
-| Innovation | ReAct pattern, MCP tools, LAM browser, ChromaDB RAG, revision loop |
+| Error handling | Per-node try/except + graph node wrapper, request timeouts, API fallbacks, never crashes |
+| Innovation | ReAct pattern, MCP tools, LAM browser, ChromaDB vector store, revision loop |
 | Clean code | Type hints, module docstrings, inline comments |
 | Documentation | README + deep-dive docs + presentation outline |
 
@@ -256,10 +264,10 @@ Results are saved to `benchmark_results.csv`.
 - **MCP-style tools**: JSON-schema descriptors compatible with Claude's tool_use API
 - **LAM browser**: Playwright headless Chromium with screenshots as proof
 - **High-precision NER**: multi-layer filter pipeline for clean, meaningful entities
-- **AI figures**: OpenAI gpt-image with a graceful data-driven Matplotlib fallback
+- **Data-driven figures**: Matplotlib charts from real pipeline data with legible labels (optional gpt-image via `USE_AI_IMAGES`)
 - **Cost tracker**: live USD estimate shown in Streamlit
 - **Revision loop**: critic-driven writer improvement (up to 3 iterations)
-- **ChromaDB RAG**: semantic retrieval for evidence-backed theme synthesis
+- **ChromaDB vector store**: sources embedded locally (sentence-transformers) and indexed for semantic search
 - **Run history**: instant recall of the last 3 reports within a session
 - **Agent Playground**: run any single agent in isolation with auto dependency resolution
 
@@ -313,14 +321,15 @@ The user only sees the NER output.  The intermediate steps happen silently.
 
 - Playwright requires a separate browser binary (`playwright install chromium`);
   on Railway this is handled automatically by `railway.toml`.
-- AI image generation requires an `OPENAI_API_KEY`; without it the app falls back
-  to Matplotlib charts. `dall-e-3` is not available on new OpenAI accounts —
-  this project uses the **gpt-image** family instead.
+- Figures are legible Matplotlib charts by default. AI images are opt-in
+  (`USE_AI_IMAGES=true` + `OPENAI_API_KEY`) — note AI models render text as
+  gibberish. `dall-e-3` is unavailable on new accounts, so the **gpt-image**
+  family is used.
 - DuckDuckGo fallback search may return fewer/lower-quality results than Tavily.
 - Very long documents may be truncated to fit Claude's context window.
 - PDF export on Windows uses ReportLab (WeasyPrint is Linux/macOS only).
-- The browser agent visits a single top source by default to stay within
-  memory-constrained hosting tiers.
+- The browser agent visits the top 3 sources by default (`BROWSER_VISIT_COUNT`);
+  lower it to 1 on very memory-constrained hosts.
 
 ---
 
@@ -349,7 +358,7 @@ multi_agent_research_assistant/
 │   │   ├── ner_agent.py
 │   │   ├── browser_agent.py
 │   │   ├── analyzer_agent.py
-│   │   ├── illustration_agent.py ← OpenAI gpt-image + Matplotlib fallback
+│   │   ├── illustration_agent.py ← Matplotlib data charts (default) + optional gpt-image
 │   │   ├── writer_agent.py
 │   │   └── critic_agent.py
 │   ├── tools/
@@ -357,7 +366,7 @@ multi_agent_research_assistant/
 │   │   ├── scrape_tool.py        ← httpx + BeautifulSoup
 │   │   ├── browser_tool.py       ← Playwright LAM (thread-isolated + timeout)
 │   │   ├── mcp_tools.py          ← Tool registry + dispatcher
-│   │   └── vector_store.py       ← ChromaDB RAG
+│   │   └── vector_store.py       ← ChromaDB semantic index (sentence-transformers)
 │   ├── ui/
 │   │   ├── sidebar.py            ← Nav buttons, theme toggle, recent runs
 │   │   ├── pipeline.py           ← Full Pipeline UI, history, downloads
@@ -371,7 +380,7 @@ multi_agent_research_assistant/
 │   ├── utils/
 │   │   ├── citations.py
 │   │   ├── cost_tracker.py
-│   │   ├── error_handler.py      ← @safe_node + API-key checks
+│   │   ├── error_handler.py      ← error fallbacks + API-key checks
 │   │   └── report_exporter.py    ← Markdown + PDF
 │   └── evaluation/
 │       ├── benchmark.py
@@ -398,7 +407,7 @@ multi_agent_research_assistant/
 | Scraping | httpx + BeautifulSoup |
 | Browser automation | Playwright (headless Chromium) |
 | NER / NLP | SpaCy `en_core_web_sm` |
-| Vector store / RAG | ChromaDB + sentence-transformers |
+| Vector store | ChromaDB + sentence-transformers |
 | Image generation | OpenAI gpt-image-1 / gpt-image-2 |
 | Charts | Matplotlib |
 | UI | Streamlit |

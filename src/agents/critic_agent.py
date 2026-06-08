@@ -30,11 +30,16 @@ SYSTEM_PROMPT = f"""You are a strict academic report reviewer evaluating against
 Rubric categories (each 1–10, overall average = final score):
   1. accuracy        — Are facts correct and well-supported by citations?
   2. completeness    — Are all major aspects of the topic covered?
-  3. clarity         — Is the writing clear, structured, and academic?
+  3. clarity         — Is the writing clear, structured, and easy to follow?
   4. citations       — Are inline citations [N] used consistently?
   5. ner_usage       — Is the Named Entities section present and informative?
   6. classification  — Is the Source Classification section present?
   7. illustrations   — Are figure references present and described?
+  8. humanness       — Does the writing sound like a real expert human?
+                       Penalise: robotic transitions, passive voice overuse,
+                       banned filler phrases ("it is worth noting", "furthermore",
+                       "delve into", "leverage", "pivotal"), uniform sentence length,
+                       or text that reads like a generic AI summary.
 
 Return ONLY a JSON object with:
   score:     integer 1-10 (average of categories)

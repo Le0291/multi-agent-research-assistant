@@ -269,13 +269,12 @@ def _chart_topic_breakdown(topic: str, index: int) -> str:
 _OPENAI_IMAGE_MODEL   = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1")
 _OPENAI_IMAGE_QUALITY = os.environ.get("OPENAI_IMAGE_QUALITY", "medium")
 
-# Whether to use AI image generation at all.  DEFAULT IS OFF because AI image
-# models (gpt-image, DALL-E, etc.) cannot render legible text — they paint
-# text-shaped pixels, so any labels/diagrams come out as gibberish.  The
-# data-driven Matplotlib charts below use REAL, perfectly legible text built
-# from the actual pipeline data, which is more useful for an academic report.
-# Set USE_AI_IMAGES=true to opt back into gpt-image generation.
-_USE_AI_IMAGES = os.environ.get("USE_AI_IMAGES", "false").strip().lower() in ("1", "true", "yes", "on")
+# Whether to use AI image generation at all.  DEFAULT IS ON — uses OpenAI
+# gpt-image-1 to generate professional research infographics.
+# Prompts are carefully crafted to minimise text inside the image (labels are
+# kept short and bold) so output is clear and readable.
+# Set USE_AI_IMAGES=false to fall back to data-driven Matplotlib charts.
+_USE_AI_IMAGES = os.environ.get("USE_AI_IMAGES", "true").strip().lower() in ("1", "true", "yes", "on")
 
 
 def _make_dalle_image(prompt: str, index: int, topic: str) -> str:
@@ -285,14 +284,15 @@ def _make_dalle_image(prompt: str, index: int, topic: str) -> str:
 
     # timeout=120 — gpt-image-1 at higher quality can take 30-60s to render
     client = openai.OpenAI(api_key=config.openai_api_key, timeout=120.0)
-    # Keep prompt detailed and data-driven — avoid 'minimal' which causes blank output
+    # Prompts crafted for maximum text clarity inside the image
     enhanced = (
-        f"Detailed academic research infographic about '{topic}': {prompt}. "
-        "Style: professional data visualization, rich in information, "
-        "dark navy/charcoal background, vibrant accent colors for labels and nodes, "
-        "clear typography, suitable for a scientific research paper. "
-        "Include relevant diagrams, charts, or concept maps — NOT abstract art, "
-        "NOT a simple logo, NOT minimalist."
+        f"Professional academic research infographic about '{topic}': {prompt}. "
+        "CRITICAL TYPOGRAPHY RULES: all text must be large (minimum 24pt equivalent), "
+        "bold, white or bright-colored on dark background, clean sans-serif font (like Arial or Helvetica). "
+        "Keep each label to 1-3 words maximum — NO long sentences inside the image. "
+        "Use icons, arrows, and color-coded shapes to convey information visually. "
+        "Dark navy (#0d1b2a) background, vibrant accent colors (#92ccff, #61de8a, #ffba4b). "
+        "Style: clean, modern, scientific poster. NOT abstract art. NOT decorative."
     )
     response = client.images.generate(
         model=_OPENAI_IMAGE_MODEL,
@@ -347,25 +347,31 @@ def _build_dalle_prompts(topic: str, state: "ResearchState") -> list[str]:
 
     return [
         # Figure 1 — Knowledge map
-        (f"Detailed knowledge graph infographic for the research topic '{topic}'. "
-         f"Show key entities and concepts as interconnected labeled nodes: {top_entities}. "
-         "Use circles and arrows to show relationships, color-coded by category "
-         "(blue for technology, green for organizations, amber for concepts). "
-         "Dark background, white labels, professional academic style."),
+        (f"Knowledge graph for '{topic}'. "
+         f"Show 6-8 concept nodes as colored circles. Node labels (1-2 words each): {top_entities[:120]}. "
+         "Connect nodes with labeled arrows (verb labels: 'uses', 'detects', 'improves'). "
+         "Each node: solid fill color, BLACK bold text inside circle for maximum contrast. "
+         "Background: dark navy. Arrow lines: white. "
+         "Node colors: blue, green, amber, red — one color per category. "
+         "Title at top: large white bold text. Clean, spacious layout, no overlapping text."),
 
-        # Figure 2 — Data analysis dashboard
-        (f"Academic research analysis dashboard for '{topic}'. "
-         "Show: (1) a bar chart of source types (academic papers, websites, news), "
-         "(2) a relevance score distribution histogram, "
-         "(3) a timeline of information sources. "
-         "Multi-panel layout, dark background, vibrant chart colors, clear axis labels."),
+        # Figure 2 — Analysis dashboard
+        (f"Research analysis dashboard for '{topic}'. "
+         "Three panels side by side: "
+         "(1) Horizontal bar chart — 4 bars labeled 'Papers', 'Web', 'News', 'Preprints'. Bold white axis labels. "
+         "(2) Pie chart — 3 slices labeled 'High', 'Medium', 'Low' relevance. Bright slice colors with white bold percentages. "
+         "(3) Simple timeline — 4 milestone dots with 1-2 word labels each. "
+         "Dark charcoal background. All text: white, bold, minimum 20pt. "
+         "Panel borders: subtle light gray. Title: large white bold at top."),
 
         # Figure 3 — Theme mind map
-        (f"Radial mind map for research on '{topic}'. "
-         f"Central node labeled '{topic}' connected to key themes: {top_themes}. "
-         "Each theme has 2-3 sub-nodes showing related concepts. "
-         "Use a dark navy background, color-coded branches, bold readable text, "
-         "professional academic poster style."),
+        (f"Radial mind map for '{topic}'. "
+         f"Center circle: bold white text '{topic[:25]}'. "
+         f"5 branch themes radiating outward: {top_themes[:150]}. "
+         "Each theme: rounded rectangle, unique bright color, bold white 2-3 word label. "
+         "Connecting lines: smooth curves, white/light gray. "
+         "Sub-nodes (2 per theme): smaller circles, same color family, 1-2 word labels. "
+         "Dark navy background. All labels: bold, white, clearly legible. No crowding."),
     ]
 
 
@@ -373,41 +379,42 @@ def illustration_agent_node(state: ResearchState) -> dict[str, Any]:
     """
     LangGraph node: generate 3 figures for the report.
 
-    Priority (default):
-      1. Data-driven Matplotlib charts built from the ACTUAL pipeline state
-         (entity distribution, source quality, theme map).  These render REAL,
-         perfectly legible text — ideal for an academic report.
-      2. AI image generation (gpt-image) ONLY if USE_AI_IMAGES=true.  Disabled by
-         default because AI models cannot render legible text (labels come out
-         as gibberish).  state.image_prompts from the writer are ignored — we
-         build richer prompts from real data when AI mode is on.
+    Priority:
+      1. OpenAI gpt-image-1 (PRIMARY) — professional AI-generated infographics
+         with clear, bold text and vibrant visuals. Requires OPENAI_API_KEY.
+         Disable by setting USE_AI_IMAGES=false.
+      2. Data-driven Matplotlib charts (FALLBACK) — used only when OpenAI
+         is disabled or the API call fails.
     """
     illustration_paths: list[str] = []
 
-    # Curated AI prompts (only used when USE_AI_IMAGES is enabled)
     dalle_prompts = _build_dalle_prompts(state.topic, state)
     ai_mode = _USE_AI_IMAGES and bool(config.openai_api_key)
+
+    if ai_mode:
+        logger.info("Illustration Agent: using OpenAI %s for image generation.", _OPENAI_IMAGE_MODEL)
+    else:
+        logger.info("Illustration Agent: OpenAI unavailable — using Matplotlib charts.")
 
     for i in range(3):  # Always produce 3 figures
         path = None
 
-        # ── Optional: AI image generation (opt-in via USE_AI_IMAGES=true) ──
+        # ── PRIMARY: OpenAI gpt-image-1 ──────────────────────────────────────
         if ai_mode:
             try:
                 path = _make_dalle_image(dalle_prompts[i], i, state.topic)
-                logger.info("Figure %d: gpt-image ✓", i + 1)
+                logger.info("Figure %d: OpenAI gpt-image ✓", i + 1)
             except Exception as exc:
-                # Store the actual error in state so the UI can display it clearly
-                err_msg = f"AI image figure {i + 1}: {type(exc).__name__}: {exc}"
-                logger.warning("%s — falling back to data chart.", err_msg)
+                err_msg = f"OpenAI image figure {i + 1}: {type(exc).__name__}: {exc}"
+                logger.warning("%s — falling back to Matplotlib chart.", err_msg)
                 state.errors.append(err_msg)
 
-        # ── Primary: data-driven Matplotlib chart (legible, from real data) ──
+        # ── FALLBACK: data-driven Matplotlib chart ───────────────────────────
         if not path:
             try:
                 builder = _CHART_BUILDERS[i]
                 path = builder(state, state.topic)
-                logger.info("Figure %d: data chart ✓", i + 1)
+                logger.info("Figure %d: Matplotlib chart ✓", i + 1)
             except Exception as exc:
                 logger.error("Figure %d generation failed: %s", i + 1, exc)
                 state.errors.append(f"Figure {i + 1} generation failed: {exc}")

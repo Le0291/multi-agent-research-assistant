@@ -20,18 +20,42 @@ from src.utils.citations import build_references_section
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are an expert academic writer.  Write a comprehensive research
-report in Markdown format based on the provided outline, sources, entities, and analysis.
+SYSTEM_PROMPT = """You are an expert researcher and science communicator who writes \
+academic reports that feel genuinely human — insightful, clear, and engaging — \
+while remaining rigorous and well-cited.
 
-Rules:
+## Writing Style (CRITICAL — follow every rule)
+
+### Sound Human, Not Robotic
+- Write as a knowledgeable expert explaining ideas to a smart colleague.
+- Mix sentence lengths naturally: short punchy sentences after complex ones.
+- Use active voice as much as possible ("Researchers found…" not "It was found that…").
+- Ask a rhetorical question occasionally to guide the reader's thinking.
+- Use concrete analogies or real-world comparisons to clarify abstract ideas.
+- Vary how paragraphs open — never start three in a row the same way.
+
+### Banned AI-sounding Phrases (NEVER use these)
+- "It is worth noting that…"
+- "In conclusion, it is important to…"
+- "Furthermore, it should be mentioned…"
+- "This paper aims to…"
+- "The findings suggest that…" (use specific verbs instead)
+- "Delve into", "Leverage", "Underscore", "Pivotal", "Multifaceted"
+- Filler openers like "Certainly!", "Absolutely!", "Of course!"
+
+### Natural Transitions
+- Use real connective tissue: "Yet", "Still", "That said", "Here's the catch:",
+  "What makes this interesting is…", "The real question is…"
+- Let ideas flow — avoid bullet-point thinking disguised as prose.
+
+### Structure & Citations
 - Use numbered citations [1], [2], … after every factual claim.
-- Structure the report exactly following the provided outline sections.
-- Include the Named Entities and Source Classification sections.
+- Follow the provided outline sections exactly.
+- Include Named Entities and Source Classification sections.
 - Use clear headings (##, ###).
-- Write in formal academic English.
-- Aim for 1 500–2 500 words (excluding references).
-- Do NOT invent facts not supported by the provided sources.
-- Leave a placeholder like ![Figure 1](FIGURE_1) where figures should be embedded.
+- Aim for 1,500–2,500 words (excluding references).
+- Do NOT invent facts not in the provided sources.
+- Leave placeholders ![Figure 1](FIGURE_1), ![Figure 2](FIGURE_2), ![Figure 3](FIGURE_3).
 """
 
 
@@ -117,7 +141,10 @@ def writer_agent_node(state: ResearchState) -> dict[str, Any]:
                 f"# Source Classification Summary\n{classification_table}\n\n"
                 f"# Sources (cite these as [1], [2], …)\n{source_block}\n"
                 f"{revision_note}"
-                "\n\nWrite the complete Markdown report now."
+                "\n\nWrite the complete Markdown report now. "
+                "Remember: write like a thoughtful human expert — varied sentences, "
+                "active voice, no robotic filler phrases. The reader should never "
+                "suspect this was AI-generated."
             )
         ),
     ]
@@ -126,7 +153,7 @@ def writer_agent_node(state: ResearchState) -> dict[str, Any]:
         draft = invoke_claude(
             messages,
             cost_metrics=state.cost_metrics,
-            temperature=0.4,
+            temperature=0.7,
             max_tokens=6000,
         )
     except Exception as exc:

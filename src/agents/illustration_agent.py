@@ -20,62 +20,97 @@ from src.state import ResearchState
 logger = logging.getLogger(__name__)
 
 # ── OpenAI image model settings ────────────────────────────────────────────── #
-_OPENAI_IMAGE_MODEL   = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1")
-_OPENAI_IMAGE_QUALITY = os.environ.get("OPENAI_IMAGE_QUALITY", "medium")
+# Model preference: gpt-image-1 → dall-e-3 (automatic fallback)
+# Override via OPENAI_IMAGE_MODEL env var to pin a specific model.
+_OPENAI_IMAGE_MODEL   = os.environ.get("OPENAI_IMAGE_MODEL", "")   # empty = auto-detect
+_OPENAI_IMAGE_QUALITY = os.environ.get("OPENAI_IMAGE_QUALITY", "")  # empty = per-model default
+
+# Models tried in order until one succeeds
+_MODEL_CASCADE = ["gpt-image-1", "dall-e-3", "dall-e-2"]
+
+# Quality values per model (APIs differ)
+_MODEL_QUALITY = {
+    "gpt-image-1": "medium",   # low / medium / high / auto
+    "dall-e-3":    "standard", # standard / hd
+    "dall-e-2":    None,       # no quality param
+}
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
 #  OpenAI image generator                                                     #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
-def _make_openai_image(prompt: str, index: int, topic: str) -> str:
+def _call_model(client: "openai.OpenAI", model: str, prompt: str) -> bytes:
     """
-    Generate one research infographic via OpenAI gpt-image-1.
-    Returns the saved file path.  Raises on any API failure.
+    Call a specific OpenAI image model and return raw image bytes.
+    Raises openai.APIError on failure so the caller can try the next model.
     """
-    import openai  # noqa: PLC0415
-    import base64  # noqa: PLC0415
+    import base64   # noqa: PLC0415
+
+    # Quality param differs per model
+    if _OPENAI_IMAGE_QUALITY:
+        quality = _OPENAI_IMAGE_QUALITY          # user override
+    else:
+        quality = _MODEL_QUALITY.get(model)      # per-model default
+
+    kwargs: dict = dict(model=model, prompt=prompt[:1000], size="1024x1024", n=1)
+    if quality:
+        kwargs["quality"] = quality
+
+    response = client.images.generate(**kwargs)
+    data0    = response.data[0]
+    b64      = getattr(data0, "b64_json", None)
+    url      = getattr(data0, "url",      None)
+
+    if b64:
+        return base64.b64decode(b64)
+    if url:
+        import httpx   # noqa: PLC0415
+        return httpx.get(url, timeout=30).content
+    raise RuntimeError("Response contained neither b64_json nor url.")
+
+
+def _make_openai_image(prompt: str, index: int, topic: str) -> tuple[str, str]:
+    """
+    Generate one research infographic using OpenAI, trying models in cascade:
+      gpt-image-1 → dall-e-3 → dall-e-2
+
+    Returns (file_path, model_used).  Raises RuntimeError if all models fail.
+    """
+    import openai   # noqa: PLC0415
 
     client = openai.OpenAI(api_key=config.openai_api_key, timeout=120.0)
 
-    # Wrap the prompt with strong typography rules for readable output
     enhanced = (
         f"Professional academic research infographic about '{topic}': {prompt}. "
         "CRITICAL TYPOGRAPHY RULES: "
-        "All text must be LARGE (minimum 24pt), BOLD, white or bright-colored "
-        "on a dark background, clean sans-serif font (Arial or Helvetica). "
+        "All text LARGE (min 24pt), BOLD, white or bright-colored on dark background, "
+        "clean sans-serif font (Arial/Helvetica). "
         "Keep every label to 1-3 words — NO long sentences inside the image. "
-        "Use icons, arrows, and color-coded shapes to convey information visually. "
-        "Dark navy (#0d1b2a) background. Accent colors: #92ccff, #61de8a, #ffba4b. "
-        "Style: clean, modern, scientific poster. NOT abstract art. NOT decorative."
+        "Use icons, arrows, color-coded shapes. "
+        "Dark navy (#0d1b2a) background. Accents: #92ccff #61de8a #ffba4b. "
+        "Clean, modern, scientific poster. NOT abstract art."
     )
 
-    response = client.images.generate(
-        model=_OPENAI_IMAGE_MODEL,
-        prompt=enhanced[:1000],
-        size="1024x1024",
-        quality=_OPENAI_IMAGE_QUALITY,
-        n=1,
+    # If user pinned a model, use only that one
+    cascade = [_OPENAI_IMAGE_MODEL] if _OPENAI_IMAGE_MODEL else _MODEL_CASCADE
+    last_exc: Exception | None = None
+
+    for model in cascade:
+        try:
+            img_bytes = _call_model(client, model, enhanced)
+            filename  = f"dalle_{index + 1}_{topic[:20].replace(' ', '_')}.png"
+            filepath  = config.images_dir / filename
+            filepath.write_bytes(img_bytes)
+            logger.info("Figure %d: saved via %s → %s", index + 1, model, filepath)
+            return str(filepath), model
+        except Exception as exc:
+            logger.warning("Model %s failed for figure %d: %s", model, index + 1, exc)
+            last_exc = exc
+
+    raise RuntimeError(
+        f"All image models failed. Last error: {last_exc}"
     )
-
-    # Handle both response shapes: b64_json (gpt-image-1) and url (dall-e-3)
-    data0  = response.data[0]
-    b64    = getattr(data0, "b64_json", None)
-    url    = getattr(data0, "url",      None)
-
-    if b64:
-        img_bytes = base64.b64decode(b64)
-    elif url:
-        import httpx  # noqa: PLC0415
-        img_bytes = httpx.get(url, timeout=30).content
-    else:
-        raise RuntimeError("OpenAI response contained neither b64_json nor url.")
-
-    filename = f"dalle_{index + 1}_{topic[:20].replace(' ', '_')}.png"
-    filepath = config.images_dir / filename
-    filepath.write_bytes(img_bytes)
-    logger.info("Saved OpenAI image (%s): %s", _OPENAI_IMAGE_MODEL, filepath)
-    return str(filepath)
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -159,21 +194,32 @@ def illustration_agent_node(state: ResearchState) -> dict[str, Any]:
 
     prompts = _build_prompts(state.topic, state)
     illustration_paths: list[str] = []
+    models_used: list[str] = []
 
     for i, prompt in enumerate(prompts):
         try:
-            path = _make_openai_image(prompt, i, state.topic)
+            path, model_used = _make_openai_image(prompt, i, state.topic)
             illustration_paths.append(path)
-            logger.info("Figure %d: ✓ saved to %s", i + 1, path)
+            models_used.append(model_used)
         except Exception as exc:
             err = f"Figure {i + 1} generation failed: {type(exc).__name__}: {exc}"
             logger.error(err)
             state.errors.append(err)
 
-    logger.info(
-        "Illustration Agent: %d/%d figures generated.",
-        len(illustration_paths), len(prompts),
-    )
+    if illustration_paths:
+        used = ", ".join(sorted(set(models_used)))
+        logger.info(
+            "Illustration Agent: %d/%d figures generated (model: %s).",
+            len(illustration_paths), len(prompts), used,
+        )
+        # Store model info so UI can display it
+        state.errors = [
+            e for e in state.errors
+            if "Figure" not in e or "failed" in e  # keep only real errors
+        ]
+    else:
+        logger.error("Illustration Agent: all figure generation attempts failed.")
+
     return {
         "illustrations": illustration_paths,
         "status": "writing",

@@ -243,13 +243,13 @@ def _fill_expander(node_name: str, label: str, state: ResearchState, expanders: 
         elif node_name == "illustration_agent":
             _img_errors = [e for e in (state.errors or []) if "Figure" in e and "failed" in e]
             if state.illustrations:
-                st.success(f"✨ {len(state.illustrations)} figures generated via OpenAI gpt-image-1")
+                st.success(f"✨ {len(state.illustrations)} figures generated via OpenAI")
             else:
-                st.warning("No figures generated — check OPENAI_API_KEY in your .env")
+                st.warning("No figures generated.")
             if _img_errors:
-                with st.expander("⚠️ Figure generation errors", expanded=False):
+                with st.expander("⚠️ Figure generation errors — expand to see details", expanded=True):
                     for _e in _img_errors:
-                        st.caption(f"🔴 {_e}")
+                        st.error(_e)
             for i, path in enumerate(state.illustrations):
                 try:
                     st.image(path, caption=Path(path).stem.replace("_", " ").title(), width=480)

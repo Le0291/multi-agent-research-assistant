@@ -16,6 +16,7 @@ LAM Context:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from src.state import ResearchState
@@ -23,10 +24,11 @@ from src.tools.browser_tool import browser_navigate
 
 logger = logging.getLogger(__name__)
 
-# Number of top sources to visit with the real browser.
-# Kept at 1 for Railway / memory-constrained environments — one page demonstrates
-# the LAM capability while keeping RAM and wall-clock time low on free-tier dynos.
-_BROWSER_VISIT_COUNT = 1
+# Number of top sources to visit with the real browser.  Default 3 (original
+# behaviour).  Each visit launches AND closes a headless browser sequentially,
+# so memory is released between visits — 3 is safe even on small dynos.
+# Override with BROWSER_VISIT_COUNT (e.g. set to 1 on very tight memory hosts).
+_BROWSER_VISIT_COUNT = max(1, int(os.environ.get("BROWSER_VISIT_COUNT", "3")))
 
 
 def browser_agent_node(state: ResearchState) -> dict[str, Any]:

@@ -169,9 +169,17 @@ def _stream_full_pipeline(topic: str) -> None:
         status_text.success("✅ Pipeline complete!")
 
     except Exception as exc:
+        import traceback  # noqa: PLC0415
         progress_bar.progress(1.0, text="Error")
-        st.error(f"Pipeline error: {exc}")
+        status_text.error(f"❌ {type(exc).__name__}")
+        st.error(f"**Pipeline error:** {exc}")
+        with st.expander("🔍 Full traceback (for debugging)", expanded=True):
+            st.code(traceback.format_exc(), language="python")
         logger.exception("Full pipeline error")
+        # Still render whatever was collected before the crash
+        if final_state and final_state.final_report:
+            st.warning("⚠️ Partial result available (pipeline crashed before finishing):")
+            _render_final_report(final_state, topic)
         return
 
     if final_state:

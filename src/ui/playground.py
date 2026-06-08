@@ -19,7 +19,7 @@ import streamlit as st
 from src.config import config
 from src.router import MODE_DESCRIPTIONS, MODE_INPUTS, route
 from src.utils.cost_tracker import format_cost_table
-from src.ui.components import render_file_upload
+from src.ui.components import render_file_upload, render_table
 
 logger = logging.getLogger(__name__)
 
@@ -221,12 +221,12 @@ def _render_research(result: dict) -> None:
                 st.markdown(f"**Type:** {src.source_type} · **Domain:** {src.domain}")
                 st.markdown(f"**Snippet:** {src.snippet[:400]}")
         st.markdown("#### Summary Table")
-        st.dataframe({
+        render_table({
             "#":     list(range(1, len(sources) + 1)),
             "Title": [s.title[:60] for s in sources],
             "Score": [s.relevance_score for s in sources],
             "URL":   [s.url for s in sources],
-        }, use_container_width=True)
+        })
 
     buf = io.StringIO()
     w = csv.writer(buf)
@@ -254,14 +254,14 @@ def _render_classification(result: dict) -> None:
             st.markdown("**Relevance Tiers**")
             for r, c in Counter(s.relevance_tier for s in classified).most_common():
                 st.markdown(f"- {r}: **{c}**")
-        st.dataframe({
+        render_table({
             "Title":     [s.title[:60]       for s in classified],
             "Type":      [s.source_type      for s in classified],
             "Domain":    [s.domain           for s in classified],
             "Relevance": [s.relevance_tier   for s in classified],
             "Score":     [s.relevance_score  for s in classified],
             "URL":       [s.url              for s in classified],
-        }, use_container_width=True)
+        })
     log = result.get("classification_log", [])
     if log:
         with st.expander(f"🗑️ Discarded sources ({len(log)})"):
@@ -331,12 +331,12 @@ def _render_ner(result: dict) -> None:
 
     # Full table
     with st.expander("📋 Full entity table (sortable)"):
-        st.dataframe({
+        render_table({
             "Entity":      [e.text     for e in entities[:80]],
             "Category":    [e.category for e in entities[:80]],
             "SpaCy Label": [e.label    for e in entities[:80]],
             "Count":       [e.count    for e in entities[:80]],
-        }, use_container_width=True)
+        })
 
     # Co-occurrence
     if rels:

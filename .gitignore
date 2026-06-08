@@ -39,3 +39,6 @@ benchmark_results.csv
 
 # Logs
 *.log
+
+# Personal defense / study notes — keep local, never upload
+EXPLANATION.md

@@ -10,6 +10,7 @@ all sources linearly.
 from __future__ import annotations
 
 import logging
+from functools import lru_cache
 from typing import Optional
 
 from src.config import config
@@ -21,12 +22,16 @@ _COLLECTION_NAME = "research_sources"
 _EMBED_MODEL = "all-MiniLM-L6-v2"  # Small, fast, good quality
 
 
+@lru_cache(maxsize=1)
 def _get_collection():
     """
-    Lazily initialise ChromaDB client and collection.
+    Lazily initialise the ChromaDB client and collection (cached per process).
 
-    We use a persistent local directory so the store survives between
-    Streamlit re-runs (the collection is recreated each research session).
+    Caching matters for RAG: without it, every index/query call would rebuild
+    the client AND reload the local sentence-transformers embedding model
+    (seconds each).  Retrieving evidence for several sub-questions would then
+    reload the model several times.  With the cache the model loads exactly once.
+    A persistent local directory keeps the store alive between Streamlit reruns.
     """
     import chromadb  # noqa: PLC0415  (lazy — not always installed)
     from chromadb.utils import embedding_functions  # noqa: PLC0415

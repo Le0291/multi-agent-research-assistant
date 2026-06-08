@@ -1,12 +1,16 @@
 """
 scrape_tool.py — MCP-style tool for fetching and cleaning web page content.
 
-Uses httpx + BeautifulSoup.  Returns clean plain text stripped of nav/ads.
-Playwright-based scraping is in browser_tool.py for JS-heavy pages.
+Handles two content types automatically:
+  - HTML pages  → BeautifulSoup text extraction
+  - PDF files   → pdfplumber text extraction
+
+Playwright-based scraping for JS-heavy pages is in browser_tool.py.
 """
 
 from __future__ import annotations
 
+import io
 import logging
 import re
 
@@ -18,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 TOOL_SPEC = {
     "name": "scrape_page",
-    "description": "Fetch and clean the text content of a web page URL.",
+    "description": "Fetch and clean the text content of a web page or PDF URL.",
     "input_schema": {
         "type": "object",
         "properties": {
@@ -41,24 +45,66 @@ HEADERS = {
 
 
 @retry(stop=stop_after_attempt(2), wait=wait_exponential(min=1, max=5))
-def _fetch_html(url: str, timeout: int = 15) -> str:
-    """Download raw HTML for a URL.  Raises on HTTP errors."""
+def _fetch_raw(url: str, timeout: int = 20) -> tuple[bytes, str]:
+    """
+    Download raw bytes for a URL.
+    Returns (content_bytes, content_type).
+    Raises on HTTP errors.
+    """
     resp = httpx.get(url, headers=HEADERS, timeout=timeout, follow_redirects=True)
     resp.raise_for_status()
-    return resp.text
+    content_type = resp.headers.get("content-type", "").lower()
+    return resp.content, content_type
 
 
-def _clean_html(html: str) -> str:
+def _is_pdf(url: str, content_type: str, content_bytes: bytes) -> bool:
+    """Return True if content is a PDF file."""
+    if "application/pdf" in content_type:
+        return True
+    if url.lower().split("?")[0].endswith(".pdf"):
+        return True
+    # Magic bytes: PDF files start with %PDF
+    if content_bytes[:4] == b"%PDF":
+        return True
+    return False
+
+
+def _extract_pdf_text(content_bytes: bytes, max_chars: int = 8_000) -> str:
     """
-    Extract readable text from raw HTML.
+    Extract readable text from PDF bytes using pdfplumber.
+    Returns empty string if extraction fails.
+    """
+    try:
+        import pdfplumber  # noqa: PLC0415
+        with pdfplumber.open(io.BytesIO(content_bytes)) as pdf:
+            pages_text: list[str] = []
+            total = 0
+            for page in pdf.pages:
+                page_text = page.extract_text() or ""
+                pages_text.append(page_text)
+                total += len(page_text)
+                if total >= max_chars:
+                    break
+            text = "\n\n".join(pages_text)
+            # Collapse excessive whitespace
+            text = re.sub(r"\n{3,}", "\n\n", text)
+            return text[:max_chars].strip()
+    except Exception as exc:
+        logger.warning("PDF text extraction failed: %s", exc)
+        return ""
+
+
+def _clean_html(html_bytes: bytes) -> str:
+    """
+    Extract readable text from raw HTML bytes.
 
     Steps:
-      1. Parse with BeautifulSoup (lxml or html.parser).
-      2. Remove noise tags.
+      1. Parse with BeautifulSoup.
+      2. Remove noise tags (nav, footer, ads…).
       3. Extract text from <article>, <main>, or <body>.
       4. Collapse whitespace.
     """
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(html_bytes, "html.parser")
 
     # Remove noise elements in-place
     for tag in soup(list(_NOISE_TAGS)):
@@ -74,8 +120,6 @@ def _clean_html(html: str) -> str:
     )
 
     text = container.get_text(separator="\n", strip=True)
-
-    # Collapse runs of blank lines to a single blank line
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
@@ -84,17 +128,30 @@ def scrape_page(url: str, max_chars: int = 8_000) -> str:
     """
     MCP-style tool: fetch a URL and return clean text (≤ max_chars).
 
-    Returns an empty string and logs a warning on failure — callers must
-    handle the possibility of empty content gracefully.
+    - PDF URLs  → text extracted via pdfplumber
+    - HTML URLs → text extracted via BeautifulSoup
+
+    Returns an empty string on failure (callers handle gracefully).
     """
     if not url or not url.startswith(("http://", "https://")):
         logger.warning("Invalid URL skipped: %r", url)
         return ""
 
     try:
-        html = _fetch_html(url)
-        text = _clean_html(html)
-        return text[:max_chars]  # Limit to avoid blowing context windows
+        content_bytes, content_type = _fetch_raw(url)
+
+        if _is_pdf(url, content_type, content_bytes):
+            text = _extract_pdf_text(content_bytes, max_chars)
+            if text:
+                logger.info("PDF extracted (%d chars): %s", len(text), url)
+            else:
+                logger.warning("PDF had no extractable text: %s", url)
+            return text
+
+        # HTML / everything else
+        text = _clean_html(content_bytes)
+        return text[:max_chars]
+
     except httpx.HTTPStatusError as exc:
         logger.warning("HTTP %s when scraping %s", exc.response.status_code, url)
     except httpx.RequestError as exc:

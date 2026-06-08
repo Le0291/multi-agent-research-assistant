@@ -241,20 +241,15 @@ def _fill_expander(node_name: str, label: str, state: ResearchState, expanders: 
                 st.markdown(f"- ⚠️ {c}")
 
         elif node_name == "illustration_agent":
-            _ai_used   = any("dalle_" in Path(p).name for p in state.illustrations)
-            _ai_errors = [e for e in (state.errors or []) if e.startswith("AI image figure")]
-            if _ai_used:
-                st.success(f"✨ {len(state.illustrations)} AI figures generated")
+            _img_errors = [e for e in (state.errors or []) if "Figure" in e and "failed" in e]
+            if state.illustrations:
+                st.success(f"✨ {len(state.illustrations)} figures generated via OpenAI gpt-image-1")
             else:
-                # Data charts are the intended default — legible text from real data
-                st.success(
-                    f"📊 {len(state.illustrations)} data charts generated from your "
-                    "pipeline data (entities · sources · themes — fully legible labels)"
-                )
-                if _ai_errors:
-                    with st.expander("ℹ️ AI image mode was on but failed — see why", expanded=False):
-                        for _e in _ai_errors:
-                            st.caption(f"🔴 {_e}")
+                st.warning("No figures generated — check OPENAI_API_KEY in your .env")
+            if _img_errors:
+                with st.expander("⚠️ Figure generation errors", expanded=False):
+                    for _e in _img_errors:
+                        st.caption(f"🔴 {_e}")
             for i, path in enumerate(state.illustrations):
                 try:
                     st.image(path, caption=Path(path).stem.replace("_", " ").title(), width=480)
@@ -379,11 +374,15 @@ def render_history_section() -> None:
                 )
             with col_pdf:
                 from src.utils.report_exporter import save_pdf  # noqa: PLC0415
-                pdf_path = save_pdf(run["final_report"], run["topic"])
+                pdf_path = save_pdf(
+                    run["final_report"],
+                    run["topic"],
+                    image_paths=run.get("illustrations", []),
+                )
                 if pdf_path and Path(pdf_path).exists():
                     with open(pdf_path, "rb") as f:
                         st.download_button(
-                            "⬇️ Download PDF",
+                            "⬇️ Download PDF (with images)",
                             data=f.read(),
                             file_name=f"{slug}_report.pdf",
                             mime="application/pdf",
@@ -394,18 +393,23 @@ def render_history_section() -> None:
 
 def _render_final_report(state: ResearchState, topic: str) -> None:
     """Render the complete report, cost table, and download buttons."""
+    from src.utils.report_exporter import markdown_to_html, save_pdf  # noqa: PLC0415
+
     st.markdown("---")
     st.markdown("## 📄 Final Report")
-    st.markdown(state.final_report)
 
-    # ── Generated figures with download buttons ───────────────────────────────
+    # ── Render report with markdown2 — images embedded as base64 ─────────────
+    html_report = markdown_to_html(state.final_report, state.illustrations)
+    st.markdown(html_report, unsafe_allow_html=True)
+
+    # ── Generated figures section with individual download buttons ────────────
     if state.illustrations:
         st.markdown("### 🖼️ Generated Figures")
         img_cols = st.columns(min(len(state.illustrations), 3))
         for i, path in enumerate(state.illustrations):
             with img_cols[i % 3]:
                 try:
-                    st.image(path, caption=Path(path).stem.replace("_", " ").title(),
+                    st.image(path, caption=f"Figure {i + 1}",
                              use_container_width=True)
                     img_bytes = Path(path).read_bytes()
                     st.download_button(
@@ -435,12 +439,15 @@ def _render_final_report(state: ResearchState, topic: str) -> None:
             use_container_width=True,
         )
     with col_pdf:
-        from src.utils.report_exporter import save_pdf  # noqa: PLC0415
-        pdf_path = save_pdf(state.final_report, topic)
+        pdf_path = save_pdf(
+            state.final_report,
+            topic,
+            image_paths=list(state.illustrations),
+        )
         if pdf_path and Path(pdf_path).exists():
             with open(pdf_path, "rb") as f:
                 st.download_button(
-                    "⬇️ Download PDF",
+                    "⬇️ Download PDF (with images)",
                     data=f.read(),
                     file_name=f"{topic[:30].replace(' ', '_')}_report.pdf",
                     mime="application/pdf",

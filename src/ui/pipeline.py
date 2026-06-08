@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -84,6 +85,8 @@ def render_full_pipeline_ui() -> None:
             st.error("Please enter a research topic.")
         else:
             _stream_full_pipeline(topic.strip())
+
+    render_history_section()
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────
@@ -172,6 +175,7 @@ def _stream_full_pipeline(topic: str) -> None:
         return
 
     if final_state:
+        _save_to_history(final_state, topic)
         _render_final_report(final_state, topic)
 
 
@@ -230,10 +234,24 @@ def _fill_expander(node_name: str, label: str, state: ResearchState, expanders: 
                 st.markdown(f"- ⚠️ {c}")
 
         elif node_name == "illustration_agent":
-            st.success(f"{len(state.illustrations)} figures generated")
-            for path in state.illustrations:
+            from src.config import config as _cfg  # noqa: PLC0415
+            _dalle_used = any("dalle_" in Path(p).name for p in state.illustrations)
+            if _dalle_used:
+                st.success(f"✨ {len(state.illustrations)} DALL-E figures generated")
+            else:
+                st.info(f"📊 {len(state.illustrations)} data charts generated (no OpenAI key → matplotlib)")
+            for i, path in enumerate(state.illustrations):
                 try:
-                    st.image(path, caption=Path(path).name, width=480)
+                    st.image(path, caption=Path(path).stem.replace("_", " ").title(), width=480)
+                    img_bytes = Path(path).read_bytes()
+                    st.download_button(
+                        f"⬇️ Download Figure {i + 1}",
+                        data=img_bytes,
+                        file_name=Path(path).name,
+                        mime="image/png",
+                        key=f"dl_fig_exp_{i}_{hash(path)}",
+                        use_container_width=True,
+                    )
                 except Exception:
                     st.caption(f"Figure: {path}")
 
@@ -254,17 +272,143 @@ def _fill_expander(node_name: str, label: str, state: ResearchState, expanders: 
             st.success("Report saved to `reports/`")
 
 
+def _save_to_history(state: ResearchState, topic: str) -> None:
+    """Persist the last 3 pipeline results in session_state."""
+    if "pipeline_history" not in st.session_state:
+        st.session_state["pipeline_history"] = []
+
+    entry = {
+        "topic":         topic,
+        "timestamp":     datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "final_report":  state.final_report,
+        "illustrations": list(state.illustrations),
+        "cost_metrics":  state.cost_metrics,
+        "entity_count":  len(state.entities),
+        "source_count":  len(state.classified_sources),
+        "critic_score":  state.critic_score,
+    }
+    history: list = st.session_state["pipeline_history"]
+    history.insert(0, entry)
+    st.session_state["pipeline_history"] = history[:3]  # keep last 3
+
+
+def render_history_section() -> None:
+    """Render the last 3 pipeline runs as collapsible sections."""
+    history: list = st.session_state.get("pipeline_history", [])
+    if not history:
+        return
+
+    _is_dark  = st.session_state.get("app_theme", "Dark") == "Dark"
+    _head_col = "#92ccff" if _is_dark else "#006397"
+    st.markdown("---")
+    st.markdown(
+        f"<h3 style='font-size:1rem;font-weight:600;color:{_head_col};"
+        f"margin:8px 0;'>📚 Recent Runs ({len(history)}/3)</h3>",
+        unsafe_allow_html=True,
+    )
+
+    for i, run in enumerate(history):
+        score = run.get("critic_score", 0)
+        score_color = "#61de8a" if score >= 7 else "#ffba4b" if score >= 5 else "#ffb4ab"
+        label = (
+            f"{'🕐' if i == 0 else '🕑' if i == 1 else '🕒'}  "
+            f"**{run['topic'][:45]}** — "
+            f"{run['timestamp']} · "
+            f"{run['source_count']} sources · "
+            f"{run['entity_count']} entities"
+        )
+        with st.expander(label, expanded=(i == 0 and len(history) == 1)):
+            # Score badge
+            st.markdown(
+                f"<span style='font-size:0.85rem;font-weight:600;"
+                f"color:{score_color};'>Critic Score: {score}/10</span>",
+                unsafe_allow_html=True,
+            )
+
+            # Report preview
+            st.markdown(run["final_report"][:3000] +
+                        ("\n\n*(truncated — download for full report)*"
+                         if len(run["final_report"]) > 3000 else ""))
+
+            # Figures
+            if run["illustrations"]:
+                st.markdown("**Figures:**")
+                img_cols = st.columns(min(len(run["illustrations"]), 3))
+                for j, path in enumerate(run["illustrations"]):
+                    with img_cols[j % 3]:
+                        try:
+                            st.image(path, caption=Path(path).stem[:25], use_container_width=True)
+                            img_bytes = Path(path).read_bytes()
+                            st.download_button(
+                                "⬇️ Figure",
+                                data=img_bytes,
+                                file_name=Path(path).name,
+                                mime="image/png",
+                                key=f"hist_fig_{i}_{j}",
+                                use_container_width=True,
+                            )
+                        except Exception:
+                            st.caption(Path(path).name)
+
+            # Download buttons
+            slug = run["topic"][:30].replace(" ", "_")
+            col_md, col_pdf = st.columns(2)
+            with col_md:
+                st.download_button(
+                    "⬇️ Download Markdown",
+                    data=run["final_report"].encode("utf-8"),
+                    file_name=f"{slug}_report.md",
+                    mime="text/markdown",
+                    key=f"hist_md_{i}",
+                    use_container_width=True,
+                )
+            with col_pdf:
+                from src.utils.report_exporter import save_pdf  # noqa: PLC0415
+                pdf_path = save_pdf(run["final_report"], run["topic"])
+                if pdf_path and Path(pdf_path).exists():
+                    with open(pdf_path, "rb") as f:
+                        st.download_button(
+                            "⬇️ Download PDF",
+                            data=f.read(),
+                            file_name=f"{slug}_report.pdf",
+                            mime="application/pdf",
+                            key=f"hist_pdf_{i}",
+                            use_container_width=True,
+                        )
+
+
 def _render_final_report(state: ResearchState, topic: str) -> None:
     """Render the complete report, cost table, and download buttons."""
     st.markdown("---")
     st.markdown("## 📄 Final Report")
     st.markdown(state.final_report)
 
+    # ── Generated figures with download buttons ───────────────────────────────
+    if state.illustrations:
+        st.markdown("### 🖼️ Generated Figures")
+        img_cols = st.columns(min(len(state.illustrations), 3))
+        for i, path in enumerate(state.illustrations):
+            with img_cols[i % 3]:
+                try:
+                    st.image(path, caption=Path(path).stem.replace("_", " ").title(),
+                             use_container_width=True)
+                    img_bytes = Path(path).read_bytes()
+                    st.download_button(
+                        f"⬇️ Figure {i + 1}",
+                        data=img_bytes,
+                        file_name=Path(path).name,
+                        mime="image/png",
+                        key=f"dl_fig_final_{i}",
+                        use_container_width=True,
+                    )
+                except Exception:
+                    st.caption(f"Figure: {path}")
+
     st.markdown("---")
     st.markdown("### 💰 Cost & Token Summary")
     st.table(format_cost_table(state.cost_metrics))
 
-    st.markdown("### 📥 Download")
+    st.markdown("### 📥 Download Report")
     col_md, col_pdf = st.columns(2)
     with col_md:
         st.download_button(
@@ -272,6 +416,8 @@ def _render_final_report(state: ResearchState, topic: str) -> None:
             data=state.final_report.encode("utf-8"),
             file_name=f"{topic[:30].replace(' ', '_')}_report.md",
             mime="text/markdown",
+            key="dl_report_md",
+            use_container_width=True,
         )
     with col_pdf:
         from src.utils.report_exporter import save_pdf  # noqa: PLC0415
@@ -283,6 +429,8 @@ def _render_final_report(state: ResearchState, topic: str) -> None:
                     data=f.read(),
                     file_name=f"{topic[:30].replace(' ', '_')}_report.pdf",
                     mime="application/pdf",
+                    key="dl_report_pdf",
+                    use_container_width=True,
                 )
 
     if state.errors:

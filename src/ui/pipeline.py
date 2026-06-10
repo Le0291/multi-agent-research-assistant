@@ -82,11 +82,31 @@ def render_full_pipeline_ui() -> None:
     with col1:
         run_btn = st.button(
             "🚀 Generate Full Report", type="primary",
-            use_container_width=True, key="fp_run",
+            width="stretch", key="fp_run",
         )
     with col2:
         st.button("💡 Demo Topic", key="fp_demo",
-                  use_container_width=True, on_click=_set_demo_topic)
+                  width="stretch", on_click=_set_demo_topic)
+
+    # Detect if a run was interrupted: fp_running=True means the streaming
+    # generator was active when a Streamlit rerun killed it (WebSocket
+    # reconnect, tab switch, etc.).  Mark it as interrupted so the warning
+    # below shows on the next render, then clear the running flag.
+    if st.session_state.get("fp_running") and not run_btn:
+        st.session_state["fp_interrupted"] = True
+        st.session_state["fp_running"] = False
+
+    # If a previous run was interrupted mid-stream (e.g. the user navigated
+    # away and the WebSocket reconnect triggered a Streamlit rerun), show a
+    # helpful warning so the user knows they need to re-run.
+    if st.session_state.get("fp_interrupted"):
+        st.warning(
+            "⚠️ Your previous run was interrupted (the page was refreshed or "
+            "you navigated away while the pipeline was running). "
+            "Please click **Generate Full Report** again.",
+            icon="⚠️",
+        )
+        del st.session_state["fp_interrupted"]
 
     if run_btn:
         if not topic.strip():
@@ -164,6 +184,7 @@ def _stream_full_pipeline(topic: str) -> None:
     step_idx    = 0
     final_state: ResearchState | None = None
 
+    st.session_state["fp_running"] = True
     try:
         for event in app.stream(state_dict, stream_mode="updates", config=get_graph_config()):
             for node_name, node_output in event.items():
@@ -198,6 +219,7 @@ def _stream_full_pipeline(topic: str) -> None:
         if final_state and final_state.final_report:
             st.warning("⚠️ Partial result available (pipeline crashed before finishing):")
             st.session_state["fp_last_result"] = _build_result(final_state, topic)
+        st.session_state["fp_running"] = False
         _cleanup_after_run()
         return
 
@@ -206,6 +228,7 @@ def _stream_full_pipeline(topic: str) -> None:
         add_history_entry(result)
         st.session_state["fp_last_result"] = result
 
+    st.session_state["fp_running"] = False
     # Free memory so a second back-to-back run doesn't get the container
     # OOM-killed (which looks like the app restarting itself)
     _cleanup_after_run()
@@ -397,14 +420,14 @@ def render_history_section() -> None:
                 for j, path in enumerate(for_figs):
                     with img_cols[j % 3]:
                         try:
-                            st.image(path, caption=Path(path).stem[:25], use_container_width=True)
+                            st.image(path, caption=Path(path).stem[:25], width="stretch")
                             st.download_button(
                                 "⬇️ Figure",
                                 data=Path(path).read_bytes(),
                                 file_name=Path(path).name,
                                 mime="image/png",
                                 key=f"hist_fig_{i}_{j}",
-                                use_container_width=True,
+                                width="stretch",
                             )
                         except Exception:
                             st.caption(Path(path).name)
@@ -421,7 +444,7 @@ def render_history_section() -> None:
                     file_name=f"{slug}_report.md",
                     mime="text/markdown",
                     key=f"hist_md_{i}",
-                    use_container_width=True,
+                    width="stretch",
                 )
             with col_pdf:
                 pdf_path = run.get("pdf_path", "")
@@ -439,7 +462,7 @@ def render_history_section() -> None:
                         file_name=f"{slug}_report.pdf",
                         mime="application/pdf",
                         key=f"hist_pdf_{i}",
-                        use_container_width=True,
+                        width="stretch",
                     )
 
 
@@ -468,14 +491,14 @@ def _render_result(res: dict, key_prefix: str) -> None:
             with img_cols[i % 3]:
                 try:
                     st.image(path, caption=f"Figure {i + 1}",
-                             use_container_width=True)
+                             width="stretch")
                     st.download_button(
                         f"⬇️ Figure {i + 1}",
                         data=Path(path).read_bytes(),
                         file_name=Path(path).name,
                         mime="image/png",
                         key=f"{key_prefix}_fig_{i}",
-                        use_container_width=True,
+                        width="stretch",
                     )
                 except Exception:
                     st.caption(f"Figure unavailable: {Path(path).name}")
@@ -495,7 +518,7 @@ def _render_result(res: dict, key_prefix: str) -> None:
             file_name=f"{slug}_report.md",
             mime="text/markdown",
             key=f"{key_prefix}_report_md",
-            use_container_width=True,
+            width="stretch",
         )
     with col_pdf:
         pdf_path = res.get("pdf_path", "")
@@ -506,7 +529,7 @@ def _render_result(res: dict, key_prefix: str) -> None:
                 file_name=f"{slug}_report.pdf",
                 mime="application/pdf",
                 key=f"{key_prefix}_report_pdf",
-                use_container_width=True,
+                width="stretch",
             )
 
     if res.get("errors"):

@@ -84,7 +84,7 @@ def render_sidebar() -> str:
             if st.button(
                 label,
                 key=f"nav_btn_{mode.replace(' ', '_')}",
-                use_container_width=True,
+                width="stretch",
                 type="primary" if is_active else "secondary",
             ):
                 st.session_state["nav_mode"] = mode

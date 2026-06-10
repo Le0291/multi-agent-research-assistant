@@ -23,9 +23,17 @@ logger = logging.getLogger(__name__)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
-REPORTS_DIR = BASE_DIR / "reports"
-IMAGES_DIR = BASE_DIR / "generated_images"
-CHROMA_DIR = BASE_DIR / ".chroma_db"
+
+# DATA_DIR allows Railway (or any host) to mount a persistent volume:
+#   set DATA_DIR=/data in Railway environment variables, then add a
+#   volume mounted at /data — reports, images, history, and ChromaDB
+#   will all survive container restarts and redeployments.
+#   Locally this env var is not set, so BASE_DIR is used as before.
+_DATA_ROOT = Path(os.environ.get("DATA_DIR", "")).resolve() if os.environ.get("DATA_DIR") else BASE_DIR
+
+REPORTS_DIR = _DATA_ROOT / "reports"
+IMAGES_DIR  = _DATA_ROOT / "generated_images"
+CHROMA_DIR  = _DATA_ROOT / ".chroma_db"
 
 # Ensure output directories exist at import time
 for _d in (REPORTS_DIR, IMAGES_DIR, CHROMA_DIR):

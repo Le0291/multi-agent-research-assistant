@@ -113,7 +113,7 @@ def render_playground_ui(mode: str) -> None:
         if notice:
             st.caption(notice)
 
-        run_btn = st.form_submit_button(f"▶ Run {mode}", type="primary", use_container_width=True)
+        run_btn = st.form_submit_button(f"▶ Run {mode}", type="primary", width="stretch")
 
     if run_btn:
         file_text = st.session_state.get("uploaded_file_text", "")

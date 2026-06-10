@@ -88,25 +88,8 @@ def render_full_pipeline_ui() -> None:
         st.button("💡 Demo Topic", key="fp_demo",
                   width="stretch", on_click=_set_demo_topic)
 
-    # Detect if a run was interrupted: fp_running=True means the streaming
-    # generator was active when a Streamlit rerun killed it (WebSocket
-    # reconnect, tab switch, etc.).  Mark it as interrupted so the warning
-    # below shows on the next render, then clear the running flag.
     if st.session_state.get("fp_running") and not run_btn:
-        st.session_state["fp_interrupted"] = True
         st.session_state["fp_running"] = False
-
-    # If a previous run was interrupted mid-stream (e.g. the user navigated
-    # away and the WebSocket reconnect triggered a Streamlit rerun), show a
-    # helpful warning so the user knows they need to re-run.
-    if st.session_state.get("fp_interrupted"):
-        st.warning(
-            "⚠️ Your previous run was interrupted (the page was refreshed or "
-            "you navigated away while the pipeline was running). "
-            "Please click **Generate Full Report** again.",
-            icon="⚠️",
-        )
-        del st.session_state["fp_interrupted"]
 
     if run_btn:
         if not topic.strip():

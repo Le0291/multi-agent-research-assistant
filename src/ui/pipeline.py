@@ -3,6 +3,13 @@ src/ui/pipeline.py — Full Pipeline UI (Mode 1: Competition mode).
 
 All 9 LangGraph agents run sequentially.  Results are streamed in real-time
 into collapsible expander panels.  A Markdown + PDF report is produced at the end.
+
+Stability notes:
+  - The final result is persisted in st.session_state and rendered OUTSIDE the
+    run branch — download clicks (which rerun the script) no longer wipe it.
+  - No download buttons are rendered while the pipeline is streaming: clicking
+    any button mid-run aborts the running Streamlit script.
+  - History is mirrored to disk (src/ui/history.py) so it survives refreshes.
 """
 
 from __future__ import annotations
@@ -19,7 +26,9 @@ from src.config import config
 from src.graph import build_graph, _dict_to_state, _state_to_full_dict, get_graph_config
 from src.state import ResearchState
 from src.utils.cost_tracker import format_cost_table
+from src.utils.report_exporter import save_pdf, embed_images_base64, markdown_to_html
 from src.ui.components import render_file_upload, render_entity_table
+from src.ui.history import get_history, add_history_entry, update_entry
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +93,16 @@ def render_full_pipeline_ui() -> None:
             st.error("Please enter a research topic.")
         else:
             _stream_full_pipeline(topic.strip())
+
+    # Rendered OUTSIDE the run branch on purpose: every download-button click
+    # triggers a full Streamlit rerun, and previously that wiped the result
+    # from the screen (it only existed inside the `if run_btn:` branch — the
+    # app looked like it "switched off" after a download).  Persisting the
+    # result in session_state and rendering it here keeps it on screen across
+    # any number of reruns/downloads.
+    last = st.session_state.get("fp_last_result")
+    if last:
+        _render_result(last, key_prefix="last")
 
     render_history_section()
 
@@ -175,15 +194,21 @@ def _stream_full_pipeline(topic: str) -> None:
         with st.expander("🔍 Full traceback (for debugging)", expanded=True):
             st.code(traceback.format_exc(), language="python")
         logger.exception("Full pipeline error")
-        # Still render whatever was collected before the crash
+        # Still keep whatever was collected before the crash (not saved to history)
         if final_state and final_state.final_report:
             st.warning("⚠️ Partial result available (pipeline crashed before finishing):")
-            _render_final_report(final_state, topic)
+            st.session_state["fp_last_result"] = _build_result(final_state, topic)
+        _cleanup_after_run()
         return
 
     if final_state:
-        _save_to_history(final_state, topic)
-        _render_final_report(final_state, topic)
+        result = _build_result(final_state, topic)
+        add_history_entry(result)
+        st.session_state["fp_last_result"] = result
+
+    # Free memory so a second back-to-back run doesn't get the container
+    # OOM-killed (which looks like the app restarting itself)
+    _cleanup_after_run()
 
 
 def _fill_expander(node_name: str, label: str, state: ResearchState, expanders: dict) -> None:
@@ -250,20 +275,17 @@ def _fill_expander(node_name: str, label: str, state: ResearchState, expanders: 
                 with st.expander("⚠️ Figure generation errors — expand to see details", expanded=True):
                     for _e in _img_errors:
                         st.error(_e)
-            for i, path in enumerate(state.illustrations):
+            # NO download buttons here — clicking ANY button while the
+            # pipeline is streaming makes Streamlit abort the running script
+            # (the app appeared to "switch off" mid-run after a download).
+            # Downloads are offered in the final-result section instead.
+            for path in state.illustrations:
                 try:
                     st.image(path, caption=Path(path).stem.replace("_", " ").title(), width=480)
-                    img_bytes = Path(path).read_bytes()
-                    st.download_button(
-                        f"⬇️ Download Figure {i + 1}",
-                        data=img_bytes,
-                        file_name=Path(path).name,
-                        mime="image/png",
-                        key=f"dl_fig_exp_{i}_{hash(path)}",
-                        use_container_width=True,
-                    )
                 except Exception:
                     st.caption(f"Figure: {path}")
+            if state.illustrations:
+                st.caption("⬇️ Download buttons appear in the result section once the run completes.")
 
         elif node_name == "writer_agent":
             st.success(f"Draft: {len(state.draft):,} characters")
@@ -282,29 +304,55 @@ def _fill_expander(node_name: str, label: str, state: ResearchState, expanders: 
             st.success("Report saved to `reports/`")
 
 
-def _save_to_history(state: ResearchState, topic: str) -> None:
-    """Persist the last 3 pipeline results in session_state."""
-    if "pipeline_history" not in st.session_state:
-        st.session_state["pipeline_history"] = []
+def _build_result(state: ResearchState, topic: str) -> dict:
+    """
+    Serialise a finished run into a small JSON-safe dict.
 
-    entry = {
+    Stored in session_state (survives reruns from download clicks) and in the
+    on-disk history (survives page refreshes).  The PDF is generated ONCE here
+    — previously it was regenerated on every Streamlit rerun, hammering CPU.
+    """
+    pdf_path = ""
+    try:
+        pdf_path = save_pdf(state.final_report, topic,
+                            image_paths=list(state.illustrations)) or ""
+    except Exception as exc:
+        logger.warning("PDF generation failed: %s", exc)
+
+    return {
         "topic":         topic,
         "timestamp":     datetime.now().strftime("%Y-%m-%d %H:%M"),
         "final_report":  state.final_report,
-        "illustrations": list(state.illustrations),
-        "cost_metrics":  state.cost_metrics,
+        "illustrations": [p for p in state.illustrations if p],
+        "cost_table":    format_cost_table(state.cost_metrics),
         "entity_count":  len(state.entities),
         "source_count":  len(state.classified_sources),
         "critic_score":  state.critic_score,
+        "errors":        list(state.errors),
+        "pdf_path":      pdf_path,
     }
-    history: list = st.session_state["pipeline_history"]
-    history.insert(0, entry)
-    st.session_state["pipeline_history"] = history[:3]  # keep last 3
+
+
+def _cleanup_after_run() -> None:
+    """
+    Free memory between runs.
+
+    Back-to-back runs used to accumulate enough RAM (matplotlib figure state,
+    big intermediate state dicts) that small hosts OOM-killed the container on
+    the second run — which the user experiences as the app restarting itself.
+    """
+    import gc  # noqa: PLC0415
+    try:
+        import matplotlib.pyplot as plt  # noqa: PLC0415
+        plt.close("all")
+    except Exception:
+        pass
+    gc.collect()
 
 
 def render_history_section() -> None:
-    """Render the last 3 pipeline runs as collapsible sections."""
-    history: list = st.session_state.get("pipeline_history", [])
+    """Render the last 3 pipeline runs (disk-persisted — survives page refresh)."""
+    history: list = get_history()
     if not history:
         return
 
@@ -318,16 +366,17 @@ def render_history_section() -> None:
     )
 
     for i, run in enumerate(history):
-        score = run.get("critic_score", 0)
+        score  = run.get("critic_score", 0)
+        report = run.get("final_report", "")
         score_color = "#61de8a" if score >= 7 else "#ffba4b" if score >= 5 else "#ffb4ab"
         label = (
             f"{'🕐' if i == 0 else '🕑' if i == 1 else '🕒'}  "
-            f"**{run['topic'][:45]}** — "
-            f"{run['timestamp']} · "
-            f"{run['source_count']} sources · "
-            f"{run['entity_count']} entities"
+            f"**{run.get('topic', '?')[:45]}** — "
+            f"{run.get('timestamp', '')} · "
+            f"{run.get('source_count', 0)} sources · "
+            f"{run.get('entity_count', 0)} entities"
         )
-        with st.expander(label, expanded=(i == 0 and len(history) == 1)):
+        with st.expander(label, expanded=False):
             # Score badge
             st.markdown(
                 f"<span style='font-size:0.85rem;font-weight:600;"
@@ -336,22 +385,22 @@ def render_history_section() -> None:
             )
 
             # Report preview
-            st.markdown(run["final_report"][:3000] +
+            st.markdown(report[:3000] +
                         ("\n\n*(truncated — download for full report)*"
-                         if len(run["final_report"]) > 3000 else ""))
+                         if len(report) > 3000 else ""))
 
-            # Figures
-            if run["illustrations"]:
+            # Figures (paths may be stale after a redeploy — degrade gracefully)
+            for_figs = run.get("illustrations", [])
+            if for_figs:
                 st.markdown("**Figures:**")
-                img_cols = st.columns(min(len(run["illustrations"]), 3))
-                for j, path in enumerate(run["illustrations"]):
+                img_cols = st.columns(min(len(for_figs), 3))
+                for j, path in enumerate(for_figs):
                     with img_cols[j % 3]:
                         try:
                             st.image(path, caption=Path(path).stem[:25], use_container_width=True)
-                            img_bytes = Path(path).read_bytes()
                             st.download_button(
                                 "⬇️ Figure",
-                                data=img_bytes,
+                                data=Path(path).read_bytes(),
                                 file_name=Path(path).name,
                                 mime="image/png",
                                 key=f"hist_fig_{i}_{j}",
@@ -360,102 +409,107 @@ def render_history_section() -> None:
                         except Exception:
                             st.caption(Path(path).name)
 
-            # Download buttons
-            slug = run["topic"][:30].replace(" ", "_")
+            # Download buttons — images embedded in the MD; PDF generated at
+            # most ONCE per entry (the old code rebuilt every PDF on every
+            # Streamlit rerun, a big CPU/memory drain on each interaction)
+            slug = run.get("topic", "report")[:30].replace(" ", "_")
             col_md, col_pdf = st.columns(2)
             with col_md:
                 st.download_button(
                     "⬇️ Download Markdown",
-                    data=run["final_report"].encode("utf-8"),
+                    data=embed_images_base64(report).encode("utf-8"),
                     file_name=f"{slug}_report.md",
                     mime="text/markdown",
                     key=f"hist_md_{i}",
                     use_container_width=True,
                 )
             with col_pdf:
-                from src.utils.report_exporter import save_pdf  # noqa: PLC0415
-                pdf_path = save_pdf(
-                    run["final_report"],
-                    run["topic"],
-                    image_paths=run.get("illustrations", []),
-                )
+                pdf_path = run.get("pdf_path", "")
+                if not (pdf_path and Path(pdf_path).exists()):
+                    try:
+                        pdf_path = save_pdf(report, run.get("topic", "report"),
+                                            image_paths=run.get("illustrations", [])) or ""
+                        update_entry(i, pdf_path=pdf_path)
+                    except Exception:
+                        pdf_path = ""
                 if pdf_path and Path(pdf_path).exists():
-                    with open(pdf_path, "rb") as f:
-                        st.download_button(
-                            "⬇️ Download PDF (with images)",
-                            data=f.read(),
-                            file_name=f"{slug}_report.pdf",
-                            mime="application/pdf",
-                            key=f"hist_pdf_{i}",
-                            use_container_width=True,
-                        )
+                    st.download_button(
+                        "⬇️ Download PDF (with images)",
+                        data=Path(pdf_path).read_bytes(),
+                        file_name=f"{slug}_report.pdf",
+                        mime="application/pdf",
+                        key=f"hist_pdf_{i}",
+                        use_container_width=True,
+                    )
 
 
-def _render_final_report(state: ResearchState, topic: str) -> None:
-    """Render the complete report, cost table, and download buttons."""
-    from src.utils.report_exporter import markdown_to_html, save_pdf  # noqa: PLC0415
+def _render_result(res: dict, key_prefix: str) -> None:
+    """
+    Render a finished run from its JSON-safe dict (session_state / history).
 
+    Because this renders from persisted data — not from variables that only
+    exist during the run — the result stays on screen across the rerun that
+    every download-button click triggers.
+    """
     st.markdown("---")
     st.markdown("## 📄 Final Report")
 
-    # ── Render report with markdown2 — images embedded as base64 ─────────────
-    html_report = markdown_to_html(state.final_report, state.illustrations)
+    report        = res.get("final_report", "")
+    illustrations = res.get("illustrations", [])
+
+    # Render with markdown2 — figures embedded as base64 <img> inside the report
+    html_report = markdown_to_html(report, illustrations)
     st.markdown(html_report, unsafe_allow_html=True)
 
-    # ── Generated figures section with individual download buttons ────────────
-    if state.illustrations:
+    if illustrations:
         st.markdown("### 🖼️ Generated Figures")
-        img_cols = st.columns(min(len(state.illustrations), 3))
-        for i, path in enumerate(state.illustrations):
+        img_cols = st.columns(min(len(illustrations), 3))
+        for i, path in enumerate(illustrations):
             with img_cols[i % 3]:
                 try:
                     st.image(path, caption=f"Figure {i + 1}",
                              use_container_width=True)
-                    img_bytes = Path(path).read_bytes()
                     st.download_button(
                         f"⬇️ Figure {i + 1}",
-                        data=img_bytes,
+                        data=Path(path).read_bytes(),
                         file_name=Path(path).name,
                         mime="image/png",
-                        key=f"dl_fig_final_{i}",
+                        key=f"{key_prefix}_fig_{i}",
                         use_container_width=True,
                     )
                 except Exception:
-                    st.caption(f"Figure: {path}")
+                    st.caption(f"Figure unavailable: {Path(path).name}")
 
     st.markdown("---")
     st.markdown("### 💰 Cost & Token Summary")
-    st.table(format_cost_table(state.cost_metrics))
+    if res.get("cost_table"):
+        st.table(res["cost_table"])
 
     st.markdown("### 📥 Download Report")
+    slug = res.get("topic", "report")[:30].replace(" ", "_")
     col_md, col_pdf = st.columns(2)
     with col_md:
         st.download_button(
-            "⬇️ Download Markdown",
-            data=state.final_report.encode("utf-8"),
-            file_name=f"{topic[:30].replace(' ', '_')}_report.md",
+            "⬇️ Download Markdown (figures embedded)",
+            data=embed_images_base64(report).encode("utf-8"),
+            file_name=f"{slug}_report.md",
             mime="text/markdown",
-            key="dl_report_md",
+            key=f"{key_prefix}_report_md",
             use_container_width=True,
         )
     with col_pdf:
-        pdf_path = save_pdf(
-            state.final_report,
-            topic,
-            image_paths=list(state.illustrations),
-        )
+        pdf_path = res.get("pdf_path", "")
         if pdf_path and Path(pdf_path).exists():
-            with open(pdf_path, "rb") as f:
-                st.download_button(
-                    "⬇️ Download PDF (with images)",
-                    data=f.read(),
-                    file_name=f"{topic[:30].replace(' ', '_')}_report.pdf",
-                    mime="application/pdf",
-                    key="dl_report_pdf",
-                    use_container_width=True,
-                )
+            st.download_button(
+                "⬇️ Download PDF (with images)",
+                data=Path(pdf_path).read_bytes(),
+                file_name=f"{slug}_report.pdf",
+                mime="application/pdf",
+                key=f"{key_prefix}_report_pdf",
+                use_container_width=True,
+            )
 
-    if state.errors:
+    if res.get("errors"):
         with st.expander("⚠️ Non-fatal pipeline errors"):
-            for e in state.errors:
+            for e in res["errors"]:
                 st.warning(e)

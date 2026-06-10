@@ -54,11 +54,12 @@ Given any research topic, the system orchestrates **9 specialised AI agents** th
 - 🏷️ **High-precision NER** — SpaCy + an 8-layer filter that strips URLs, table
   garbage, stop-words, and sentence fragments, then remaps tech terms & dedupes
 - 🌐 **LAM browser automation** — Playwright headless Chromium with screenshots
-- 🎨 **Data-driven figures** — Matplotlib charts (entity distribution, source
-  quality, theme map) with real legible labels by default; optional OpenAI
-  gpt-image-1/2 via `USE_AI_IMAGES=true`
+- 🎨 **Topic-centric figures** — Matplotlib charts about the topic itself
+  (knowledge map, research scope, theme map) with real legible labels;
+  embedded inside the exported MD (base64) and PDF (real images);
+  optional OpenAI gpt-image-1/2 via `USE_AI_IMAGES=true`
 - 🌓 **Dark / Light theme toggle** — fully themed Stitch-style UI, zero white flashes
-- 📚 **Run history** — the last 3 pipeline runs are kept in-session for quick recall
+- 📚 **Run history** — the last 3 runs persisted to disk (survive page refreshes)
 - ⬇️ **Per-figure & report downloads** — PNG figures, Markdown, and PDF export
 - 💰 **Live cost tracker** — real-time USD/token estimate in the UI
 - 🛡️ **Never crashes** — per-node try/except + a graph-level node wrapper, request timeouts, graceful degradation

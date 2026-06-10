@@ -28,6 +28,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import traceback
+from pathlib import Path
 from typing import Any
 
 from langgraph.graph import StateGraph, END
@@ -254,6 +255,19 @@ def finalize_node(state: ResearchState) -> dict[str, Any]:
             "Manual review recommended.\n\n"
         )
         final = warning + final
+
+    # Make sure the figures live INSIDE the report text itself.  The writer is
+    # asked to leave FIGURE_N placeholders, but if it didn't, append a Figures
+    # section — the MD exporter inlines these as base64 and the PDF exporter
+    # embeds the actual images, so downloads contain the figures.
+    if state.illustrations:
+        referenced = any(Path(p).name in final for p in state.illustrations if p)
+        if not referenced:
+            figs = "\n\n## Figures\n"
+            for i, p in enumerate(state.illustrations, 1):
+                pretty = Path(p).stem.replace("_", " ").title()
+                figs += f"\n![Figure {i} — {pretty}](generated_images/{Path(p).name})\n"
+            final += figs
 
     md_path = ""
     try:

@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import Counter, defaultdict
+from functools import lru_cache
 from typing import Any
 
 from src.state import EntityRecord, ResearchState
@@ -94,8 +95,15 @@ _STOP_ENTITIES: set[str] = {
 }
 
 
+@lru_cache(maxsize=1)
 def _load_spacy():
-    """Load the SpaCy model, auto-downloading if necessary."""
+    """
+    Load the SpaCy model ONCE per process (auto-downloading if necessary).
+
+    Without the cache the ~50 MB model was reloaded on every pipeline run and
+    the old copies lingered until GC — a major contributor to the app being
+    OOM-killed (looking like a self-restart) on the second back-to-back run.
+    """
     import spacy  # noqa: PLC0415
 
     model_name = "en_core_web_sm"

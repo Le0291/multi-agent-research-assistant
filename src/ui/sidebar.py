@@ -125,8 +125,9 @@ def render_sidebar() -> str:
             for tool in list_tools():
                 st.markdown(f"- **{tool['name']}**")
 
-        # ── Recent runs summary ───────────────────────────────────────────
-        history = st.session_state.get("pipeline_history", [])
+        # ── Recent runs summary (disk-backed — survives page refresh) ─────
+        from src.ui.history import get_history  # noqa: PLC0415
+        history = get_history()
         if history:
             st.divider()
             st.markdown(
@@ -135,16 +136,16 @@ def render_sidebar() -> str:
                 f"📚 Recent Runs</div>",
                 unsafe_allow_html=True,
             )
-            for i, run in enumerate(history):
+            for i, run in enumerate(history[:3]):
                 icon = ["🕐", "🕑", "🕒"][i]
                 score = run.get("critic_score", 0)
                 score_col = "#61de8a" if score >= 7 else "#ffba4b" if score >= 5 else "#ffb4ab"
                 st.markdown(
                     f"<div style='font-size:0.78rem;padding:4px 4px;line-height:1.5;"
                     f"border-left:3px solid {score_col};padding-left:8px;margin-bottom:4px;'>"
-                    f"{icon} <b>{run['topic'][:28]}</b><br>"
+                    f"{icon} <b>{run.get('topic', '?')[:28]}</b><br>"
                     f"<span style='color:{_lbl_col};font-size:0.70rem;'>"
-                    f"{run['timestamp']} · {score}/10</span></div>",
+                    f"{run.get('timestamp', '')} · {score}/10</span></div>",
                     unsafe_allow_html=True,
                 )
 

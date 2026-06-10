@@ -1,8 +1,9 @@
 """
 report_exporter.py — Export the final report to Markdown and PDF.
 
-PDF generation uses ReportLab with:
-  - markdown2 for parsing Markdown structure
+Markdown export is self-contained: local image references are inlined as
+base64 data URIs.  PDF generation uses ReportLab with:
+  - markdown2 for parsing Markdown structure (UI rendering)
   - Embedded images (from generated_images/) inline in the PDF
   - Styled headings, body text, bullet points, and figure captions
 """
@@ -18,6 +19,56 @@ from pathlib import Path
 from src.config import config
 
 logger = logging.getLogger(__name__)
+
+# Matches a Markdown image reference: ![caption](path)
+_IMG_MD_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)\)")
+
+
+def _resolve_image_path(ref: str) -> Path | None:
+    """
+    Resolve a Markdown image reference to a real file on disk.
+
+    Handles the refs the writer/finalize emit ("generated_images/foo.png"),
+    bare filenames, and absolute paths.  Returns None for remote URLs,
+    data URIs, or files that don't exist.
+    """
+    ref = ref.strip()
+    if ref.startswith(("http://", "https://", "data:")):
+        return None
+    p = Path(ref)
+    candidates = [p] if p.is_absolute() else [
+        config.reports_dir.parent / ref,        # project-root-relative ref
+        config.images_dir / Path(ref).name,     # bare filename in images dir
+    ]
+    for c in candidates:
+        if c.exists() and c.is_file():
+            return c
+    return None
+
+
+def embed_images_base64(markdown_text: str) -> str:
+    """
+    Inline every local image reference as a base64 data URI.
+
+    The exported .md previously pointed at "generated_images/…" paths that
+    don't exist next to the downloaded/saved file — every image was broken.
+    Data URIs make the Markdown fully self-contained (renders in VS Code,
+    Obsidian, browsers, etc. with the figures inside it).
+    """
+    def _sub(m: re.Match) -> str:
+        caption, ref = m.group(1), m.group(2)
+        path = _resolve_image_path(ref)
+        if path is None:
+            return m.group(0)
+        try:
+            mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+            b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+            return f"![{caption}](data:{mime};base64,{b64})"
+        except Exception as exc:
+            logger.warning("Could not embed image %s: %s", path, exc)
+            return m.group(0)
+
+    return _IMG_MD_RE.sub(_sub, markdown_text)
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -94,12 +145,15 @@ def markdown_to_html(content: str, image_paths: list[str] | None = None) -> str:
 # ═══════════════════════════════════════════════════════════════════════════ #
 
 def save_markdown(content: str, topic: str) -> str:
-    """Save the report as a .md file and return the file path."""
+    """
+    Save the report as a self-contained .md file (images embedded as base64)
+    and return the file path.
+    """
     slug      = topic[:40].replace(" ", "_").replace("/", "-")
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     filename  = f"{slug}_{timestamp}.md"
     filepath  = config.reports_dir / filename
-    filepath.write_text(content, encoding="utf-8")
+    filepath.write_text(embed_images_base64(content), encoding="utf-8")
     logger.info("Markdown report saved: %s", filepath)
     return str(filepath)
 

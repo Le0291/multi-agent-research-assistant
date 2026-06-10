@@ -215,10 +215,6 @@ def _stream_full_pipeline(topic: str) -> None:
     # Free memory so a second back-to-back run doesn't get the container
     # OOM-killed (which looks like the app restarting itself)
     _cleanup_after_run()
-    # Rerun clears the streaming expanders and renders the final report
-    # cleanly at the top — without this the user has to scroll past all
-    # 9 agent panels to see the result, or do a manual page refresh.
-    st.rerun()
 
 
 def _fill_expander(node_name: str, label: str, state: ResearchState, expanders: dict) -> None:

@@ -143,15 +143,17 @@ def _build_prompts(topic: str, state: ResearchState) -> list[str]:
 
         # Figure 2 — Analysis dashboard
         (
-            f"Research analysis dashboard for '{topic}'. "
-            "Three panels side by side: "
-            "(1) Horizontal bar chart — bars labeled 'Papers', 'Web', 'News', 'Preprints'. "
-            "Bold white axis labels. "
-            "(2) Pie chart — slices labeled 'High', 'Medium', 'Low' relevance. "
-            "Bright slice colors with white bold percentages. "
-            "(3) Simple timeline — milestone dots with 1-2 word labels. "
-            "Dark charcoal background. All text: white, bold, minimum 20pt. "
-            "Subtle panel borders. Title: large white bold at top."
+            f"Clean research analysis infographic for '{topic}'. "
+            "Layout: large title at top, then TWO wide rows below. "
+            "TOP ROW — horizontal bar chart, 4 bars with INSIDE labels: "
+            "'Papers' (blue, longest), 'Web Sources' (green), 'News' (amber), 'Preprints' (teal). "
+            "Each bar has its percentage value written at the end in large white bold text. "
+            "BOTTOM ROW — pie chart on left: exactly 3 equal slices labeled "
+            "'High 50%' (bright green), 'Medium 30%' (amber), 'Low 20%' (red). "
+            "Labels OUTSIDE each slice with leader lines. "
+            "On the right: numbered list of 4 key findings, each one line, white text. "
+            "Background: dark navy #0d1b2a. All fonts: white, bold, minimum 22pt. "
+            "High contrast, plenty of whitespace, no overlapping text."
         ),
 
         # Figure 3 — Theme mind map

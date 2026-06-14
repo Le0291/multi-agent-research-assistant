@@ -24,13 +24,6 @@ from src.tools.browser_tool import browser_navigate
 
 logger = logging.getLogger(__name__)
 
-# Number of top sources to visit with the real browser.  Default 3.
-# Set BROWSER_VISIT_COUNT=0 to disable the browser agent entirely (recommended
-# on memory-constrained hosts like Railway free/hobby — Chromium launch alone
-# uses 300-500 MB which triggers an OOM kill on small containers).
-_BROWSER_VISIT_COUNT = int(os.environ.get("BROWSER_VISIT_COUNT", "3"))
-
-
 def browser_agent_node(state: ResearchState) -> dict[str, Any]:
     """
     LangGraph node: use Playwright to enrich the top N classified sources.
@@ -38,18 +31,21 @@ def browser_agent_node(state: ResearchState) -> dict[str, Any]:
     Input state fields used : classified_sources
     Output state fields set  : browser_results, status
     """
+    # Read at call time so Railway env-var changes take effect without restart.
+    browser_visit_count = int(os.environ.get("BROWSER_VISIT_COUNT", "3"))
+
     try:
-        if _BROWSER_VISIT_COUNT == 0:
+        if browser_visit_count == 0:
             logger.info("Browser Agent: disabled via BROWSER_VISIT_COUNT=0.")
             return {"browser_results": [], "status": "analyzing"}
 
-        sources_to_visit = state.classified_sources[:_BROWSER_VISIT_COUNT]
+        sources_to_visit = state.classified_sources[:browser_visit_count]
 
         if not sources_to_visit:
             logger.info("Browser Agent: no sources to visit.")
             return {"browser_results": [], "status": "analyzing"}
 
-        logger.info("Browser Agent: visiting %d source(s) via Playwright.", len(sources_to_visit))
+        logger.info("Browser Agent: visiting %d source(s) via Playwright (BROWSER_VISIT_COUNT=%d).", len(sources_to_visit), browser_visit_count)
         results: list[dict[str, Any]] = []
 
         for src in sources_to_visit:

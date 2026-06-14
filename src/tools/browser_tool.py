@@ -158,31 +158,58 @@ async def _navigate_async(url: str, take_screenshot: bool = True) -> dict[str, A
 
 def browser_navigate(url: str, take_screenshot: bool = True) -> dict[str, Any]:
     """
-    Synchronous wrapper around the async Playwright navigator.
+    Run Playwright in an isolated child process for OOM safety.
 
-    Runs the async code in a dedicated worker thread so it ALWAYS gets a
-    fresh event loop — completely isolated from Streamlit's own event loop.
-    Without this isolation, calling asyncio.run() from a Streamlit context
-    that already has a running loop raises RuntimeError on the 2nd+ pipeline
-    run, crashing the whole pipeline mid-stream.
+    Chromium launch uses 300-500 MB of RAM. On memory-constrained hosts
+    (Railway free/hobby) the OS may OOM-kill the process. Running the browser
+    in a subprocess means only that child is killed — the parent Streamlit app
+    catches the non-zero exit code and continues gracefully.
 
-    A hard 40-second wall-clock timeout prevents the browser from hanging
-    indefinitely when the Playwright binary is missing or a site is very slow.
+    A 45-second wall-clock timeout covers slow-starting bundled binaries.
     """
-    import concurrent.futures  # noqa: PLC0415
+    import json       # noqa: PLC0415
+    import os         # noqa: PLC0415
+    import subprocess # noqa: PLC0415
+    import sys        # noqa: PLC0415
 
-    def _run_in_thread() -> dict[str, Any]:
-        # Worker thread has NO existing event loop → asyncio.run is always safe here.
-        return asyncio.run(_navigate_async(url, take_screenshot))
+    runner = Path(__file__).parent / "browser_runner.py"
+
+    # Compute screenshot path here so the parent controls naming
+    screenshot_path: str | None = None
+    if take_screenshot:
+        slug = url.split("//")[-1].replace("/", "_")[:60]
+        screenshot_path = str(config.images_dir / f"browser_{slug}.png")
+
+    cmd = [sys.executable, str(runner), url]
+    if screenshot_path:
+        cmd.append(screenshot_path)
 
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_run_in_thread)
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=45,
+            env={**os.environ},
+        )
+
+        if proc.returncode == 0 and proc.stdout.strip():
             try:
-                return future.result(timeout=40)          # hard 40-second cutoff
-            except concurrent.futures.TimeoutError:
-                logger.warning("browser_navigate timed out after 40s for %s", url)
-                return {"url": url, "error": "Browser navigation timed out (>40s)"}
+                return json.loads(proc.stdout.strip())
+            except json.JSONDecodeError:
+                pass
+
+        # Non-zero exit = subprocess was OOM-killed or crashed
+        stderr_snippet = (proc.stderr or "")[:300]
+        logger.warning(
+            "Browser subprocess exited %d for %s — %s",
+            proc.returncode, url, stderr_snippet or "(no stderr)",
+        )
+        return {"url": url, "error": f"Browser process exited {proc.returncode}"}
+
+    except subprocess.TimeoutExpired:
+        logger.warning("browser_navigate subprocess timed out (>45s) for %s", url)
+        return {"url": url, "error": "Browser navigation timed out (>45s)"}
     except Exception as exc:
-        logger.error("browser_navigate failed for %s: %s", url, exc)
+        logger.error("browser_navigate subprocess error for %s: %s", url, exc)
         return {"url": url, "error": str(exc)}

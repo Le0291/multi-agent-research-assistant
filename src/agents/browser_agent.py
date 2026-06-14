@@ -24,11 +24,11 @@ from src.tools.browser_tool import browser_navigate
 
 logger = logging.getLogger(__name__)
 
-# Number of top sources to visit with the real browser.  Default 3 (original
-# behaviour).  Each visit launches AND closes a headless browser sequentially,
-# so memory is released between visits — 3 is safe even on small dynos.
-# Override with BROWSER_VISIT_COUNT (e.g. set to 1 on very tight memory hosts).
-_BROWSER_VISIT_COUNT = max(1, int(os.environ.get("BROWSER_VISIT_COUNT", "3")))
+# Number of top sources to visit with the real browser.  Default 3.
+# Set BROWSER_VISIT_COUNT=0 to disable the browser agent entirely (recommended
+# on memory-constrained hosts like Railway free/hobby — Chromium launch alone
+# uses 300-500 MB which triggers an OOM kill on small containers).
+_BROWSER_VISIT_COUNT = int(os.environ.get("BROWSER_VISIT_COUNT", "3"))
 
 
 def browser_agent_node(state: ResearchState) -> dict[str, Any]:
@@ -39,6 +39,10 @@ def browser_agent_node(state: ResearchState) -> dict[str, Any]:
     Output state fields set  : browser_results, status
     """
     try:
+        if _BROWSER_VISIT_COUNT == 0:
+            logger.info("Browser Agent: disabled via BROWSER_VISIT_COUNT=0.")
+            return {"browser_results": [], "status": "analyzing"}
+
         sources_to_visit = state.classified_sources[:_BROWSER_VISIT_COUNT]
 
         if not sources_to_visit:
